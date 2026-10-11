@@ -33,6 +33,7 @@ import { SessionSummary } from "../../src/session/summary"
 import { Instruction } from "../../src/session/instruction"
 import { SessionProcessor } from "../../src/session/processor"
 import { SessionPrompt } from "../../src/session/prompt"
+import { ForkRouteTurn } from "../../src/session/fork-route"
 import { SessionRevert } from "../../src/session/revert"
 import { SessionRunState } from "../../src/session/run-state"
 import { SessionStatus } from "../../src/session/status"
@@ -286,6 +287,25 @@ it.instance("a model picked by hand fails over to another provider when its quot
     expect(answers.map((item) => (item.info.role === "assistant" ? `${item.info.providerID}/${item.info.modelID}` : ""))).toEqual([
       "other/backup-model",
     ])
+
   }),
   30_000,
+)
+
+it.live("a subagent takes the small model of another provider while the parent's is cooling down", () =>
+  Effect.gen(function* () {
+    const small = (id: string) => ({ id: `${id}-mini`, providerID: id }) as never
+    const stub = {
+      list: () => Effect.succeed({ lost: {}, spare: {}, router: {} } as never),
+      getSmallModel: (id: string) => Effect.succeed(small(id)),
+    }
+    expect(String((yield* ForkRouteTurn.smallModel(stub, "lost" as never))?.id)).toBe("lost-mini")
+
+    ForkRouteTurn.failed({
+      user: { id: "msg_lost", model: { providerID: "lost", modelID: "big" } } as never,
+      model: { providerID: "lost", id: "big" } as never,
+      error: new SessionV1.APIError({ message: "You exceeded your current quota", statusCode: 402, isRetryable: false }).toObject() as never,
+    })
+    expect(String((yield* ForkRouteTurn.smallModel(stub, "lost" as never))?.id)).toBe("spare-mini")
+  }),
 )

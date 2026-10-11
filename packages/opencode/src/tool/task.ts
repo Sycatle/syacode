@@ -286,7 +286,7 @@ export const TaskTool = Tool.define(
       // Also applies the low-effort variant of the small model (ForkAgents.defaultVariant).
       const small =
         !inheriting && ForkAgents.routeToSmallModel(next) && Option.isSome(provider)
-          ? yield* provider.value.getSmallModel(msg.info.providerID)
+          ? yield* ForkRouteTurn.smallModel(provider.value, msg.info.providerID)
           : undefined
       // FORK-SEAM: route-subagent (under a router/* turn a subagent without its own model is routed too)
       const routed = inheriting ? undefined : ForkRouteTurn.subagent(ctx.sessionID, msg.info)

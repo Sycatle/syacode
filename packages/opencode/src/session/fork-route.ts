@@ -470,6 +470,24 @@ const handedOff = new Map<string, string>()
 // leaves, which is pointless when that provider is the one that refused.
 export const healthy = (providerID: string) => !health.degraded(Date.now()).has(providerID)
 
+// The small model of a parent's provider; while that provider is cooling down, the one of another connected provider
+// (an explore subagent must not fail on the provider that just refused the parent).
+export const smallModel = Effect.fn("ForkRouteTurn.smallModel")(function* (
+  provider: Pick<Provider.Interface, "getSmallModel" | "list">,
+  providerID: Provider.Info["id"],
+) {
+  const own = yield* provider.getSmallModel(providerID)
+  if (healthy(providerID) || !ForkRouteGlobal.enabled()) return own
+  const others = Object.keys(yield* provider.list()).filter(
+    (id) => id !== providerID && !ForkRouteProvider.isRouter(id) && healthy(id),
+  )
+  for (const id of others) {
+    const small = yield* provider.getSmallModel(id as Provider.Info["id"])
+    if (small) return small
+  }
+  return own
+})
+
 // Where the session stands: the journal first, then the last assistant message of a session
 // whose earlier turns ran on a model picked by hand. A new session or a subagent has no view.
 function sessionView(
