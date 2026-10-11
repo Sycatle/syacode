@@ -7,6 +7,7 @@ import { Usage, type LLMEvent } from "@opencode-ai/llm"
 import { Effect } from "effect"
 import * as Stream from "effect/Stream"
 import type { LLM } from "./llm"
+import { ForkRouteTurn } from "./fork-route"
 import { MessageV2 } from "./message-v2"
 import { PartID } from "./schema"
 import { Session } from "./session"
@@ -28,6 +29,8 @@ export const cachedSummary = Effect.fn("ForkCompaction.cachedSummary")(function*
   if (!ForkCompaction.enabled()) return false
   const last = ForkCompaction.recall<LLM.StreamInput>(input.message.sessionID)
   if (!last) return false
+  // FORK-SEAM: handoff (replaying the last request goes to the provider the conversation leaves; skip one that refused)
+  if (!ForkRouteTurn.healthy(last.input.model.providerID)) return false
   const index = input.history.findIndex((message) => message.info.id === last.messageID)
   if (index === -1) return false
   const delta = yield* MessageV2.toModelMessagesEffect(input.history.slice(index), last.input.model)

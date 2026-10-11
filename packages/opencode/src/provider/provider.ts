@@ -1261,7 +1261,7 @@ export interface Interface {
   readonly list: () => Effect.Effect<Record<ProviderV2.ID, Info>>
   readonly getProvider: (providerID: ProviderV2.ID) => Effect.Effect<Info>
   readonly getModel: (providerID: ProviderV2.ID, modelID: ModelV2.ID) => Effect.Effect<Model, ModelNotFoundError>
-  readonly getLanguage: (model: Model) => Effect.Effect<LanguageModelV3, ModelNotFoundError>
+  readonly getLanguage: (model: Model, sessionID?: string) => Effect.Effect<LanguageModelV3, ModelNotFoundError>
   readonly closest: (
     providerID: ProviderV2.ID,
     query: string[],
@@ -1932,9 +1932,9 @@ const layer = Layer.effect(
       return info
     })
 
-    const getLanguage = Effect.fn("Provider.getLanguage")(function* (virtual: Model) {
+    const getLanguage = Effect.fn("Provider.getLanguage")(function* (virtual: Model, sessionID?: string) {
       // FORK-SEAM: route-language (a virtual router model runs on the concrete model its turn resolved to)
-      const routed = ForkRouteProvider.concrete(virtual)
+      const routed = ForkRouteProvider.concrete(virtual, sessionID)
       const model = routed
         ? yield* getModel(ProviderV2.ID.make(routed.providerID), ModelV2.ID.make(routed.modelID))
         : virtual

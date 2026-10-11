@@ -46,7 +46,7 @@ import { Ripgrep } from "@opencode-ai/core/ripgrep"
 import { Format } from "../../src/format"
 import { TestInstance } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
-import { TestLLMServer } from "../lib/llm-server"
+import { TestLLMServer, httpError } from "../lib/llm-server"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 
 const summary = Layer.succeed(
@@ -240,6 +240,51 @@ it.instance("a routed model that fails before streaming hands the turn to anothe
     // The failed attempt streamed nothing: it is removed rather than kept as an error message.
     expect(answers.map((item) => (item.info.role === "assistant" ? String(item.info.modelID) : ""))).toEqual([
       "solid-model",
+    ])
+  }),
+  30_000,
+)
+
+// A second provider on the same test server, for the fail-over of a model picked by hand.
+const withBackup = (url: string): Partial<ConfigV1.Info> => ({
+  provider: {
+    ...config(url).provider,
+    other: {
+      name: "Other",
+      id: "other",
+      env: [],
+      npm: "@ai-sdk/openai-compatible",
+      models: { "backup-model": model("backup-model", 4) },
+      options: { apiKey: "test-key", baseURL: url },
+    },
+  },
+})
+
+it.instance("a model picked by hand fails over to another provider when its quota is gone", () =>
+  Effect.gen(function* () {
+    const llm = yield* TestLLMServer
+    const { directory } = yield* TestInstance
+    yield* Effect.promise(() =>
+      Bun.write(path.join(directory, "opencode.json"), JSON.stringify({ $schema: "https://opencode.ai/config.json", ...withBackup(llm.url) })),
+    )
+    const sessions = yield* Session.Service
+    const session = yield* sessions.create({ permission: [{ permission: "*", pattern: "*", action: "allow" as const }] })
+    const prompt = yield* SessionPrompt.Service
+
+    // The title is generated on the same server: only the turn itself is refused.
+    const turn = (hit: { body: Record<string, unknown> }) => !JSON.stringify(hit.body).includes("title") && hit.body.model === "quick-model"
+    yield* llm.pushMatch(turn, httpError(402, { error: { message: "You exceeded your current quota", type: "insufficient_quota" } }))
+    yield* llm.textMatch((hit) => hit.body.model === "backup-model", "done on the backup")
+    yield* prompt.prompt({
+      sessionID: session.id,
+      model: { providerID: "test", modelID: "quick-model" } as never,
+      parts: [{ type: "text", text: "rename foo to bar" }],
+    })
+
+    expect(ForkRouteLog.latest(session.id)).toMatchObject({ kind: "fallback", mode: "pinned", provider_id: "other", model_id: "backup-model" })
+    const answers = (yield* sessions.messages({ sessionID: session.id })).filter((item) => item.info.role === "assistant")
+    expect(answers.map((item) => (item.info.role === "assistant" ? `${item.info.providerID}/${item.info.modelID}` : ""))).toEqual([
+      "other/backup-model",
     ])
   }),
   30_000,

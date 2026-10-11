@@ -550,3 +550,12 @@ test("between two subscriptions the one with more room in its windows goes first
   ])
   expect(close.fast).toEqual(["anthropic/haiku", "openai/mini"])
 })
+
+test("cooldowns can be restored after a restart and report when they end", () => {
+  const health = ForkRoute.health()
+  health.restore([{ key: "anthropic", until: 5_000 }])
+  expect(health.degraded(1_000).has("anthropic")).toBe(true)
+  expect(health.degraded(6_000).has("anthropic")).toBe(false)
+  health.cooldown("openai", 10_000, 0)
+  expect(health.until("openai")).toBe(10_000)
+})

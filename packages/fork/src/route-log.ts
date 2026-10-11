@@ -23,23 +23,26 @@ export type Entry = {
   error?: string
   // The reasoning effort variant the turn runs with, when the Router picked one.
   variant?: string
+  // Why the global router chose this provider (route-global.ts); absent when it was not involved.
+  provider_reason?: string
 }
 
-export type Row = Omit<Entry, "signals" | "previous" | "score" | "error" | "variant"> & {
+export type Row = Omit<Entry, "signals" | "previous" | "score" | "error" | "variant" | "provider_reason"> & {
   id: number
   previous: string | null
   score: number | null
   signals: string | null
   error: string | null
   variant: string | null
+  provider_reason: string | null
 }
 
 export function record(entry: Entry) {
   try {
     table()
       .query(
-        `INSERT INTO fork_route (time, session_id, message_id, kind, mode, tier, provider_id, model_id, previous, reason, score, signals, error, variant)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO fork_route (time, session_id, message_id, kind, mode, tier, provider_id, model_id, previous, reason, score, signals, error, variant, provider_reason)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         entry.time,
@@ -56,6 +59,7 @@ export function record(entry: Entry) {
         entry.signals ? JSON.stringify(entry.signals) : null,
         entry.error ?? null,
         entry.variant ?? null,
+        entry.provider_reason ?? null,
       )
   } catch {}
 }
@@ -129,11 +133,13 @@ export function table() {
     score REAL,
     signals TEXT,
     error TEXT,
-    variant TEXT
+    variant TEXT,
+    provider_reason TEXT
   )`)
   // Tables created before effort variants have no `variant` column.
   const columns = db.query<{ name: string }, []>("PRAGMA table_info(fork_route)").all()
   if (!columns.some((column) => column.name === "variant")) db.run("ALTER TABLE fork_route ADD variant TEXT")
+  if (!columns.some((column) => column.name === "provider_reason")) db.run("ALTER TABLE fork_route ADD provider_reason TEXT")
   db.run("CREATE INDEX IF NOT EXISTS fork_route_session ON fork_route (session_id, id)")
   ready = true
   return db

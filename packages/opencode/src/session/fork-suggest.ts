@@ -78,6 +78,7 @@ export const suggest = Effect.fn("ForkSuggest.suggest")(function* (sessionID: Se
     maxOutputTokens: ForkPromptSuggestion.MAX_OUTPUT_TOKENS,
     noThinking: true,
     current: { providerID: lastUser.info.model.providerID, modelID: lastUser.info.model.modelID },
+    sessionID,
   }).pipe(Effect.timeoutOption(ForkPromptSuggestion.TIMEOUT_MS), Effect.exit)
   if (exit._tag === "Failure" || exit.value._tag === "None") return
 

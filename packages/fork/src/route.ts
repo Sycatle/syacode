@@ -533,6 +533,13 @@ export function health() {
     cooldown(key: string, ms: number, now: number) {
       cooldowns.set(key, now + ms)
     },
+    until(key: string) {
+      return cooldowns.get(key)
+    },
+    // Cooldowns that outlived the process (route-health.ts).
+    restore(entries: readonly { key: string; until: number }[]) {
+      entries.forEach((entry) => cooldowns.set(entry.key, Math.max(entry.until, cooldowns.get(entry.key) ?? 0)))
+    },
     degraded(now: number) {
       return new Set([...cooldowns].filter(([, until]) => until > now).map(([key]) => key))
     },

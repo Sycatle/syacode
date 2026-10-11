@@ -16,6 +16,8 @@ export const smallModelRun = Effect.fn("ForkSmallModel.run")(function* (input: {
   // Plain completion for tiny answers: the small model's default thinking would dwarf the answer.
   noThinking?: boolean
   current?: { providerID: string; modelID: string }
+  // The session `current` belongs to, to find the concrete model behind a Router model.
+  sessionID?: string
   // Fail instead of falling back to the provider's main model when it has no small model.
   smallOnly?: boolean
 }) {
@@ -33,7 +35,7 @@ export const smallModelRun = Effect.fn("ForkSmallModel.run")(function* (input: {
     ? { providerID: ProviderV2.ID.make(input.current.providerID), modelID: ModelV2.ID.make(input.current.modelID) }
     : yield* provider.defaultModel()
   // A Router model is virtual: its small model is the one of the provider the last routed turn ran on.
-  const routed = ForkRouteProvider.concrete({ providerID: chosen.providerID, id: chosen.modelID })
+  const routed = ForkRouteProvider.concrete({ providerID: chosen.providerID, id: chosen.modelID }, input.sessionID)
   const fallback = routed
     ? { providerID: ProviderV2.ID.make(routed.providerID), modelID: ModelV2.ID.make(routed.modelID) }
     : chosen

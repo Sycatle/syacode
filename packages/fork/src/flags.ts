@@ -115,6 +115,21 @@ export const FLAGS = {
   },
   ROUTE_QUOTA: { kind: "number", description: "5h window utilization above which the subscription goes last" },
   ROUTE_TURNS: { kind: "number", default: "6", description: "Expected turns left, for switch costs" },
+  ROUTE_GLOBAL: {
+    kind: "switch",
+    default: "on",
+    description: "Global router: picks the provider first (health, window headroom, cache, task), then the model inside it",
+  },
+  ROUTE_AFFINITY: {
+    kind: "text",
+    description: 'Provider weights per task type, JSON: {"anthropic": {"architecture": 0.9}}; unlisted pairs are 0.5',
+  },
+  HANDOFF: {
+    kind: "switch",
+    default: "on",
+    description: "Compact into a provider-neutral checkpoint before the Router moves a conversation to another provider",
+  },
+  HANDOFF_MIN: { kind: "number", default: "20000", description: "Context tokens below which a provider change skips the checkpoint" },
   ROUTE_RECLASSIFY: { kind: "switch", default: "on", description: "Reuse the previous signals for a short follow-up" },
   ROUTE_EFFORT: { kind: "switch", default: "on", description: "Router picks the effort variant" },
   ROUTE_PLAN: { kind: "switch", default: "on", description: "Router nudges towards plan mode" },

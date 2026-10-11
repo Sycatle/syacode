@@ -4,7 +4,11 @@ import { ProviderV2 } from "@opencode-ai/core/provider"
 import { SessionV1 } from "@opencode-ai/core/v1/session"
 import { ForkJev } from "@opencode-fork/core/jev"
 import { ForkQuota } from "@opencode-fork/core/quota"
+import { ForkRouteHealth } from "@opencode-fork/core/route-health"
+import { ForkHandoff } from "@opencode-fork/core/handoff"
 import { ForkRoute } from "@opencode-fork/core/route"
+import { ForkProviderRoute } from "@opencode-fork/core/route-provider"
+import { ForkRouteGlobal } from "@opencode-fork/core/route-global"
 import { ForkRouteJev } from "@opencode-fork/core/route-jev"
 import { ForkRouteLog } from "@opencode-fork/core/route-log"
 import { Cause, Effect, Option, Schema } from "effect"
@@ -22,6 +26,7 @@ import { SessionRetry } from "./retry"
 // provider) in cooldown and the turn is routed again (`failed`, called from the processor).
 
 const health = ForkRoute.health()
+health.restore(ForkRouteHealth.load())
 
 // `floor` is the tier a struggling turn was raised to: it holds for every later step of the same message.
 type Turn = { candidates: string[]; attempts: number; excluded: Set<string>; error?: string; floor?: ForkRoute.Tier }
@@ -49,7 +54,7 @@ export const resolve = Effect.fn("ForkRouteTurn.resolve")(function* (input: {
   assistant: SessionV1.Assistant | undefined
 }) {
   const own: Resolved = { providerID: input.user.model.providerID, modelID: input.user.model.modelID }
-  if (!routed(input.user)) return { model: own, variant: undefined, signals: undefined } as const
+  if (!routed(input.user)) return yield* pinned(input, own)
 
   const provider = yield* Provider.Service
   const mode = ForkRoute.parseMode(input.user.model.modelID) ?? ({ kind: "auto" } as const)
@@ -59,7 +64,8 @@ export const resolve = Effect.fn("ForkRouteTurn.resolve")(function* (input: {
   )
   // One snapshot per subscription: each provider is judged on its own window, not on whichever is fresh first.
   const quotas = ["anthropic", "openai"].flatMap((id) => ForkQuota.fresh(id) ?? [])
-  const catalog = catalogOf(models, new Map(quotas.map((item) => [item.provider, headroomOf(item)] as const)))
+  const headrooms = new Map(quotas.map((item) => [item.provider, headroomOf(item)] as const))
+  const catalog = catalogOf(models, headrooms)
   const now = Date.now()
 
   const done = ForkRouteLog.forMessage(input.session.id, input.user.id)
@@ -128,31 +134,51 @@ export const resolve = Effect.fn("ForkRouteTurn.resolve")(function* (input: {
   const ttl = ForkCache.HISTORY_WARM_MS
   const cold = lastTurn?.time.completed !== undefined && now - lastTurn.time.completed > ttl
   const recent = assistants.slice(-5)
-  const choice = ForkRoute.choose(
-    {
-      mode,
-      minTier: floor,
-      signals: signals ?? (needsClassify ? ForkRoute.unknown(ForkRoute.contextSize(tokens)) : undefined),
-      continuation,
-      session: view,
-      tokens,
-      needsTools: true,
-      degraded,
-      context,
-      remaining: Number(process.env.OPENCODE_FORK_ROUTE_TURNS) || 6,
-      output: recent.length ? recent.reduce((sum, m) => sum + m.tokens.output + m.tokens.reasoning, 0) / recent.length : 1500,
-      cold,
-      warm: Object.fromEntries(
-        assistants
-          .filter((m) => m.time.completed !== undefined && now - m.time.completed <= ttl)
-          .map((m) => [
-            `${m.providerID}/${m.modelID}`,
-            m.tokens.input + m.tokens.cache.read + m.tokens.cache.write + m.tokens.output,
-          ]),
-      ),
-    },
-    catalog,
-  )
+  const chooseIn = (scope: ForkRoute.Catalog) =>
+    ForkRoute.choose(
+      {
+        mode,
+        minTier: floor,
+        signals: signals ?? (needsClassify ? ForkRoute.unknown(ForkRoute.contextSize(tokens)) : undefined),
+        continuation,
+        session: view,
+        tokens,
+        needsTools: true,
+        degraded,
+        context,
+        remaining: Number(process.env.OPENCODE_FORK_ROUTE_TURNS) || 6,
+        output: recent.length ? recent.reduce((sum, m) => sum + m.tokens.output + m.tokens.reasoning, 0) / recent.length : 1500,
+        cold,
+        warm: Object.fromEntries(
+          assistants
+            .filter((m) => m.time.completed !== undefined && now - m.time.completed <= ttl)
+            .map((m) => [
+              `${m.providerID}/${m.modelID}`,
+              m.tokens.input + m.tokens.cache.read + m.tokens.cache.write + m.tokens.output,
+            ]),
+        ),
+      },
+      scope,
+    )
+  // FORK-SEAM: route-global (the provider is chosen first, then the model inside it)
+  const chosen = ForkRouteGlobal.enabled()
+    ? pickProvider({
+        catalog,
+        models,
+        degraded,
+        headrooms,
+        view,
+        floor,
+        mode,
+        signals,
+        tokens,
+        context,
+        output: recent.length ? recent.reduce((sum, m) => sum + m.tokens.output + m.tokens.reasoning, 0) / recent.length : 1500,
+        continuation,
+        cold,
+      })
+    : undefined
+  const choice = (chosen ? chooseIn(ForkProviderRoute.restrict(catalog, chosen.provider)) : undefined) ?? chooseIn(catalog)
   const real = choice ? models.get(choice.model) : undefined
   if (!choice || !real)
     return {
@@ -166,7 +192,11 @@ export const resolve = Effect.fn("ForkRouteTurn.resolve")(function* (input: {
     candidates: choice.candidates.map((c) => c.model),
   })
   trim()
-  ForkRouteProvider.remember(input.user.model.modelID, { providerID: resolved.providerID, modelID: resolved.modelID })
+  ForkRouteProvider.remember(
+    input.user.model.modelID,
+    { providerID: resolved.providerID, modelID: resolved.modelID },
+    input.session.id,
+  )
 
   // A continuation that kept its model is not news; a new decision or a move to another model is.
   const moved = done !== undefined && `${done.provider_id}/${done.model_id}` !== choice.model
@@ -183,7 +213,7 @@ export const resolve = Effect.fn("ForkRouteTurn.resolve")(function* (input: {
           cold,
         })
   const fresh = needsClassify || reused ? signals : undefined
-  if (continuation && !moved) return { model: resolved, variant, signals: undefined } as const
+  if (continuation && !moved) return { model: resolved, variant, signals: undefined, handoff: undefined } as const
   const escalated = moved && floor !== undefined && turn.error === undefined
   ForkRouteLog.record({
     time: now,
@@ -200,8 +230,9 @@ export const resolve = Effect.fn("ForkRouteTurn.resolve")(function* (input: {
     signals,
     error: moved && !escalated ? turn.error : undefined,
     variant,
+    provider_reason: chosen?.switched ? chosen.reason : undefined,
   })
-  return { model: resolved, variant, signals: fresh } as const
+  return { model: resolved, variant, signals: fresh, handoff: handoffOf({ from: view?.model, to: choice.model, context, reason: chosen?.reason, session: input.session }) } as const
 })
 
 // The variant of the session's last routed message; undefined for a session that has none.
@@ -249,6 +280,195 @@ function catalogOf(models: Map<string, Provider.Model>, subscriptions: ReadonlyM
     ) as Record<ForkRoute.Tier, string[]>,
   }
 }
+
+// A model picked by hand stays, unless its provider is cooling down (rate limit, quota, bad credentials): then the
+// turn fails over to the provider the global router ranks first, at the same tier, with a checkpoint when the
+// conversation is large. When the provider recovers the user's model is back.
+const pinned = Effect.fn("ForkRouteTurn.pinned")(function* (
+  input: {
+    session: Session.Info
+    user: SessionV1.User
+    messages: SessionV1.WithParts[]
+    assistant: SessionV1.Assistant | undefined
+  },
+  own: Resolved,
+) {
+  const stay = { model: own, variant: undefined, signals: undefined, handoff: undefined } as const
+  const provider = yield* Provider.Service
+  const connected = Object.values(yield* provider.list()).filter((item) => !ForkRouteProvider.isRouter(item.id))
+  alternatives = new Set(connected.map((item) => item.id))
+  const now = Date.now()
+  const open = health.degraded(now)
+  if (!ForkRouteGlobal.enabled() || !(open.has(own.providerID) || open.has(`${own.providerID}/${own.modelID}`))) return stay
+
+  const models = new Map<string, Provider.Model>(
+    connected.flatMap((item) => Object.values(item.models).map((model) => [`${item.id}/${model.id}`, model] as const)),
+  )
+  const quotas = ["anthropic", "openai"].flatMap((id) => ForkQuota.fresh(id) ?? [])
+  const headrooms = new Map(quotas.map((item) => [item.provider, headroomOf(item)] as const))
+  const catalog = catalogOf(models, headrooms)
+  const degraded = new Set(health.degraded(now))
+  const ownID = `${own.providerID}/${own.modelID}`
+  const tier = ForkRoute.TIERS.findLast((t) => catalog.tiers[t].includes(ownID)) ?? "standard"
+  const assistants = input.messages.flatMap((m) => (m.info.role === "assistant" && m.info.tokens ? [m.info] : []))
+  const lastTurn = assistants.findLast((m) => m.tokens.input + m.tokens.cache.read + m.tokens.cache.write > 0)
+  const context = lastTurn ? lastTurn.tokens.input + lastTurn.tokens.cache.read + lastTurn.tokens.cache.write + lastTurn.tokens.output : FIXED_CONTEXT
+  const tokens = context + Math.ceil(textOf(input.messages.findLast((m) => m.info.id === input.user.id)).length / 4)
+  const output = 1500
+  const order = ForkRouteGlobal.failover(own.providerID, {
+    tier,
+    providers: viewsOf({ catalog, degraded, headrooms, tier, tokens, context, output, task: undefined }),
+    context,
+  })
+  const target = order[0]
+  if (!target) return stay
+  const choice = ForkRoute.choose(
+    {
+      mode: { kind: "tier", tier },
+      continuation: false,
+      tokens,
+      needsTools: true,
+      degraded,
+      context,
+      remaining: Number(process.env.OPENCODE_FORK_ROUTE_TURNS) || 6,
+      output,
+      cold: true,
+    },
+    ForkProviderRoute.restrict(catalog, target),
+  )
+  const real = choice ? models.get(choice.model) : undefined
+  if (!choice || !real) return stay
+
+  const reason = `${own.providerID} is cooling down: failover to ${target}`
+  const done = ForkRouteLog.forMessage(input.session.id, input.user.id)
+  if (done?.model_id !== real.id)
+    ForkRouteLog.record({
+      time: now,
+      session_id: input.session.id,
+      message_id: input.user.id,
+      kind: "fallback",
+      mode: "pinned",
+      tier: choice.tier,
+      provider_id: real.providerID,
+      model_id: real.id,
+      previous: ownID,
+      reason,
+      provider_reason: reason,
+    })
+  return {
+    model: { providerID: real.providerID, modelID: real.id },
+    variant: undefined,
+    signals: undefined,
+    handoff: handoffOf({
+      from: input.assistant ? `${input.assistant.providerID}/${input.assistant.modelID}` : undefined,
+      to: choice.model,
+      context,
+      reason,
+      session: input.session,
+    }),
+  } as const
+})
+
+// Providers connected as of the last turn: a failure of a pinned model can only fail over if another one exists.
+let alternatives = new Set<string>()
+
+// The provider the global router sends the turn to. Undefined when it is not involved or nothing can serve the turn,
+// in which case the flat router decides over every connected model.
+function pickProvider(input: {
+  catalog: ForkRoute.Catalog
+  models: Map<string, Provider.Model>
+  degraded: ReadonlySet<string>
+  headrooms: ReadonlyMap<string, number>
+  view: ForkRoute.SessionView | undefined
+  floor: ForkRoute.Tier | undefined
+  mode: ReturnType<typeof ForkRoute.parseMode> | { kind: "auto" }
+  signals: ForkRoute.Signals | undefined
+  tokens: number
+  context: number
+  output: number
+  continuation: boolean
+  cold: boolean
+}) {
+  const decision = ForkRoute.decide(
+    {
+      mode: input.mode ?? { kind: "auto" },
+      minTier: input.floor,
+      signals: input.signals,
+      continuation: input.continuation,
+      session: input.view,
+      tokens: input.tokens,
+      needsTools: true,
+      degraded: input.degraded,
+    },
+    input.catalog,
+  )
+  const providers = viewsOf({
+    catalog: input.catalog,
+    degraded: input.degraded,
+    headrooms: input.headrooms,
+    tier: decision.tier,
+    tokens: input.tokens,
+    context: input.context,
+    output: input.output,
+    task: input.signals?.task_type,
+  })
+  return ForkRouteGlobal.pick({
+    current: input.view?.provider,
+    tier: decision.tier,
+    providers,
+    continuation: input.continuation,
+    cold: input.cold,
+    context: input.context,
+  })
+}
+
+// What the global router knows about each connected provider for this turn.
+function viewsOf(input: {
+  catalog: ForkRoute.Catalog
+  degraded: ReadonlySet<string>
+  headrooms: ReadonlyMap<string, number>
+  tier: ForkRoute.Tier
+  tokens: number
+  context: number
+  output: number
+  task: string | undefined
+}) {
+  const affinity = ForkRouteGlobal.affinities(process.env.OPENCODE_FORK_ROUTE_AFFINITY)
+  const ids = [...new Set(Object.values(input.catalog.models).map((model) => model.provider))]
+  return ids.map((id): ForkRouteGlobal.ProviderView => {
+    const usable = (tier: ForkRoute.Tier) =>
+      input.catalog.tiers[tier]
+        .flatMap((model) => (input.catalog.models[model]?.provider === id ? [input.catalog.models[model]] : []))
+        .filter((model) => ForkRoute.compatible(model, input.tokens, true))
+    const top = ForkRoute.TIERS.findLast((tier) => usable(tier).length > 0)
+    const own = usable(input.tier)[0] ?? (top ? usable(top)[0] : undefined)
+    return {
+      id,
+      healthy: !input.degraded.has(id),
+      top,
+      subscription: input.headrooms.has(id),
+      headroom: input.headrooms.get(id) ?? 1,
+      turnCost: own ? (input.context * own.price.cacheRead + input.output * own.price.output) / 1_000_000 : Infinity,
+      affinity: ForkRouteGlobal.affinityOf(affinity, id, input.task),
+    }
+  })
+}
+
+// A conversation that changes provider leaves behind a checkpoint and a summary (prompt.ts acts on this).
+function handoffOf(input: { from: string | undefined; to: string; context: number; reason: string | undefined; session: Session.Info }) {
+  if (input.session.parentID || !input.from) return undefined
+  if (!ForkHandoff.needed({ from: input.from, to: input.to, context: input.context })) return undefined
+  // Once per move: the summary turn that follows runs on the target and must not trigger another.
+  if (handedOff.get(input.session.id) === input.to) return undefined
+  handedOff.set(input.session.id, input.to)
+  return { from: input.from, to: input.to, context: input.context, reason: input.reason ?? "provider changed" } as const
+}
+
+const handedOff = new Map<string, string>()
+
+// Whether a provider is out of cooldown; the cached summary replays a request to the provider the conversation
+// leaves, which is pointless when that provider is the one that refused.
+export const healthy = (providerID: string) => !health.degraded(Date.now()).has(providerID)
 
 // Where the session stands: the journal first, then the last assistant message of a session
 // whose earlier turns ran on a model picked by hand. A new session or a subagent has no view.
@@ -383,13 +603,15 @@ export const output = (type: string) => /^(text|reasoning|tool)-/.test(type)
 // routed again because another candidate is left. Otherwise the session's own retry and error
 // handling apply, as for any model.
 export function failed(input: { user: SessionV1.User; model: Provider.Model; error: SessionRetry.Err }) {
-  if (!routed(input.user)) return false
+  if (!routed(input.user)) return failedPinned(input)
   const turn = turns.get(input.user.id)
   if (!turn || turn.attempts >= MAX_REROUTES) return false
   const failure = failureOf(input.error, input.model.providerID)
   if (!failure) return false
   const id = `${input.model.providerID}/${input.model.id}`
-  health.record({ id, provider: input.model.providerID }, failure, Date.now())
+  const cooled = health.record({ id, provider: input.model.providerID }, failure, Date.now())
+  const until = cooled ? health.until(cooled) : undefined
+  if (cooled && until) ForkRouteHealth.save(cooled, until)
   turn.excluded.add(id)
   turn.attempts++
   turn.error = `${id}: ${failure.kind}`
@@ -398,6 +620,27 @@ export function failed(input: { user: SessionV1.User; model: Provider.Model; err
     (candidate) => !turn.excluded.has(candidate) && !open.has(candidate) && !open.has(candidate.split("/")[0]),
   )
   return alternative
+}
+
+// A model picked by hand fails over only when waiting cannot help: quota, credits or credentials are gone, or the
+// provider kept answering 429/529 through several tries of the same message. Other failures keep the session's retries.
+const PINNED_RATE_LIMITED_TRIES = 3
+
+function failedPinned(input: { user: SessionV1.User; model: Provider.Model; error: SessionRetry.Err }) {
+  if (!ForkRouteGlobal.enabled()) return false
+  const failure = failureOf(input.error, input.model.providerID)
+  if (!failure) return false
+  const turn = turns.get(input.user.id) ?? { candidates: [], attempts: 0, excluded: new Set<string>() }
+  turns.set(input.user.id, turn)
+  trim()
+  turn.attempts++
+  const hard = failure.kind === "quota" || failure.kind === "auth"
+  if (!hard && !(failure.kind === "rate_limited" && turn.attempts >= PINNED_RATE_LIMITED_TRIES)) return false
+  if (turn.attempts > MAX_REROUTES) return false
+  const key = health.record({ id: `${input.model.providerID}/${input.model.id}`, provider: input.model.providerID }, failure, Date.now())
+  const until = key ? health.until(key) : undefined
+  if (key && until) ForkRouteHealth.save(key, until)
+  return [...alternatives].some((id) => id !== input.model.providerID && !health.degraded(Date.now()).has(id))
 }
 
 function failureOf(error: SessionRetry.Err, provider: string) {

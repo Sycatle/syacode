@@ -64,3 +64,16 @@ it.instance(
   }),
   { config: { provider: { anthropic: { options: { apiKey: "test-key" } } } } },
 )
+
+it.instance(
+  "two sessions on the same virtual model keep their own concrete model",
+  Effect.gen(function* () {
+    const provider = yield* Provider.Service
+    const virtual = yield* provider.getModel(router, ModelV2.ID.make("auto"))
+    ForkRouteProvider.remember("auto", { providerID: "anthropic", modelID: "claude-haiku-4-5" }, "ses_a")
+    ForkRouteProvider.remember("auto", { providerID: "anthropic", modelID: "claude-sonnet-4-5-20250929" }, "ses_b")
+    expect((yield* provider.getLanguage(virtual, "ses_a")).modelId).toBe("claude-haiku-4-5")
+    expect((yield* provider.getLanguage(virtual, "ses_b")).modelId).toBe("claude-sonnet-4-5-20250929")
+  }),
+  { config: { provider: { anthropic: { options: { apiKey: "test-key" } } } } },
+)

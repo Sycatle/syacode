@@ -23,6 +23,7 @@ import { ForkPreload } from "./fork-preload"
 import { ForkSessionMessaging } from "./fork-messaging"
 import { ForkWakeup } from "@opencode-fork/core/wakeup"
 import { ForkWrapup } from "@opencode-fork/core/wrapup"
+import { ForkHandoffRun } from "./fork-handoff"
 import { ForkQuota } from "@opencode-fork/core/quota"
 import { ForkHooks } from "@opencode-fork/core/hooks"
 import { ToolRegistry } from "@/tool/registry"
@@ -1249,6 +1250,27 @@ const layer = Layer.effect(
               overflow: task.overflow,
             })
             if (result === "stop") break
+            continue
+          }
+
+          // FORK-SEAM: handoff (the Router moves the conversation to another provider: leave a checkpoint and summarize first)
+          if (routed.handoff) {
+            yield* ForkHandoffRun.checkpoint({
+              sessionID,
+              directory: ctx.directory,
+              messages: msgs,
+              reason: routed.handoff.reason.includes("cooling down") ? "failover" : "provider-switch",
+              from: routed.handoff.from,
+              to: routed.handoff.to,
+              context: routed.handoff.context,
+            })
+            // The summary runs on the provider the conversation moves to: the one it leaves may be the one that refused.
+            yield* compaction.create({
+              sessionID,
+              agent: lastUser.agent,
+              model: { providerID: routed.model.providerID, modelID: routed.model.modelID },
+              auto: false,
+            })
             continue
           }
 

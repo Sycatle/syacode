@@ -14,7 +14,7 @@ export function smallModelAsk(
 
     const current = session(event.sessionID)
     const result = await AppRuntime.runPromise(
-      InstanceStore.Service.use((store) => store.provide({ directory }, smallModelRun({ prompt, current }))),
+      InstanceStore.Service.use((store) => store.provide({ directory }, smallModelRun({ prompt, current, sessionID: event.sessionID }))),
     )
     return result.text
   }

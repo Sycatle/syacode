@@ -61,16 +61,25 @@ export function inject(providers: Record<string, Info>, disabled: ReadonlySet<st
   }
 }
 
-// Last concrete model each virtual model resolved to. Consumers that are handed the virtual model
-// instead of the turn's concrete one (title, compaction, hooks) run on it through `getLanguage`.
-const last = new Map<string, { providerID: string; modelID: string }>()
+// Last concrete model each session's virtual model resolved to. Consumers that are handed the virtual model
+// instead of the turn's concrete one (title, compaction, hooks) run on it through `getLanguage`. Keyed by session:
+// two sessions on router/auto at once resolve to different models. The per-virtual entry is the fallback for a
+// caller that has no session (a process restart also leaves the session map empty).
+const bySession = new Map<string, { providerID: string; modelID: string }>()
+const byVirtual = new Map<string, { providerID: string; modelID: string }>()
+const MAX_SESSIONS = 200
 
-export function remember(virtual: string, real: { providerID: string; modelID: string }) {
-  last.set(virtual, real)
+export function remember(virtual: string, real: { providerID: string; modelID: string }, sessionID?: string) {
+  byVirtual.set(virtual, real)
+  if (!sessionID) return
+  bySession.delete(sessionID)
+  bySession.set(sessionID, real)
+  const oldest = bySession.size > MAX_SESSIONS ? bySession.keys().next().value : undefined
+  if (oldest !== undefined) bySession.delete(oldest)
 }
 
-export function concrete(model: { providerID: string; id: string }) {
+export function concrete(model: { providerID: string; id: string }, sessionID?: string) {
   if (!isRouter(model.providerID)) return undefined
-  return last.get(model.id) ?? last.get("auto")
+  return (sessionID ? bySession.get(sessionID) : undefined) ?? byVirtual.get(model.id) ?? byVirtual.get("auto")
 }
 export * as ForkRouteProvider from "./fork-route"
