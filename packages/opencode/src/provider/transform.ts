@@ -707,6 +707,13 @@ function anthropicBindsThinking(apiId: string) {
   return major > 5 || (major === 5 && minor >= 1)
 }
 
+export function bindsThinking(model: Provider.Model) {
+  return (
+    ["@ai-sdk/anthropic", "@ai-sdk/google-vertex/anthropic", "@ai-sdk/amazon-bedrock"].includes(model.api.npm) &&
+    anthropicBindsThinking(model.api.id)
+  )
+}
+
 // Fable 5.1 binds each thinking signature to the system prompt, tool list, and
 // messages above it, and rejects the request when any of that changes. opencode
 // re-renders parts of that prefix between turns (system prompt, tools, compaction),

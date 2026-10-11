@@ -15,6 +15,7 @@
     "./tools": "./src/tools.ts",
     "./context": "./src/context.ts",
     "./budget": "./src/budget.ts",
+    "./stable-prefix": "./src/stable-prefix.ts",
     "./compaction": "./src/compaction.ts",
     "./agents": "./src/agents.ts",
     "./autonomy": "./src/autonomy.ts",

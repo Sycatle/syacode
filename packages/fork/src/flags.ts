@@ -43,6 +43,11 @@ export const FLAGS = {
     default: "on",
     description: "1h breakpoint on the first message under opencode-claude-auth",
   },
+  STABLE_PREFIX: {
+    kind: "switch",
+    default: "on",
+    description: "Claude 5.1+: keep the tool list identical across plan and build so signed thinking blocks stay valid",
+  },
   CACHED_COMPACTION: { kind: "switch", default: "on", description: "Summarize by replaying the cached last request" },
   SMART_COMPACTION: { kind: "switch", default: "on", description: "Compact at task boundaries and on a cold cache" },
   COMPACT_AT: { kind: "number", default: "0.5", description: "Context ratio for a task-boundary compaction" },

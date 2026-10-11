@@ -6,6 +6,7 @@ import { MCP } from "@/mcp"
 import { McpCatalog } from "@/mcp/catalog"
 import { ForkTools } from "@opencode-fork/core/tools"
 import { ForkClaudeTools } from "@opencode-fork/core/claude-tools"
+import { ForkStablePrefix } from "@opencode-fork/core/stable-prefix"
 import { Permission } from "@/permission"
 import { ForkSystemPrompt } from "@opencode-fork/core/system-prompt"
 import { Tool } from "@/tool/tool"
@@ -102,6 +103,7 @@ export const resolve = Effect.fn("SessionTools.resolve")(function* (input: {
     providerID: input.model.providerID,
     agent: input.agent,
     permission: input.session.permission,
+    stable: ForkStablePrefix.enabled(ProviderTransform.bindsThinking(input.model)),
   })) {
     // FORK-SEAM: claude-tools (opencode-only grep options are not offered outside the Claude profile)
     const schema = ProviderTransform.schema(
@@ -120,7 +122,21 @@ export const resolve = Effect.fn("SessionTools.resolve")(function* (input: {
               { tool: item.id, sessionID: ctx.sessionID, callID: ctx.callID },
               { args },
             )
-            const result = yield* item.execute(args, ctx)
+            // FORK-SEAM: stable-prefix (these tools stay listed in every agent; the ones the agent may not use refuse here)
+            const refused =
+              ForkStablePrefix.MODE_TOOLS.some((mode) => mode === item.id) &&
+              Permission.disabled(
+                [item.id],
+                Permission.merge(input.agent.permission, input.session.permission ?? []),
+              ).has(item.id)
+            const result = refused
+              ? {
+                  title: item.id,
+                  metadata: {},
+                  output: ForkStablePrefix.refusal(item.id, input.agent.name),
+                  attachments: undefined,
+                }
+              : yield* item.execute(args, ctx)
             const output = {
               ...result,
               // FORK-SEAM: unattended (a loaded skill is the latest instruction; restate that nobody can approve)

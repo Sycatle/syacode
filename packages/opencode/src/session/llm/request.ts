@@ -9,6 +9,7 @@ import type { MessageV2 } from "../message-v2"
 import type { Provider } from "@/provider/provider"
 import { ProviderTransform } from "@/provider/transform"
 import { ForkClaudeTools } from "@opencode-fork/core/claude-tools"
+import { ForkStablePrefix } from "@opencode-fork/core/stable-prefix"
 import { SystemPrompt } from "../system"
 import { InstallationVersion } from "@opencode-ai/core/installation/version"
 import { Effect, Record } from "effect"
@@ -211,12 +212,16 @@ export const prepare = Effect.fn("LLMRequestPrep.prepare")(function* (input: Pre
   }
 })
 
-function resolveTools(input: Pick<PrepareInput, "tools" | "agent" | "permission" | "user">) {
+function resolveTools(input: Pick<PrepareInput, "tools" | "agent" | "permission" | "user" | "model">) {
   // FORK-SEAM: claude-tools-permission (rules and tool toggles are written with opencode's tool names)
-  const disabled = Permission.disabled(
+  const rules = Permission.disabled(
     Object.keys(input.tools).map(ForkClaudeTools.toNativeName),
     Permission.merge(input.agent.permission, input.permission ?? []),
   )
+  // FORK-SEAM: stable-prefix (plan and build offer the same tools so signed thinking blocks stay valid)
+  const disabled = ForkStablePrefix.enabled(ProviderTransform.bindsThinking(input.model))
+    ? ForkStablePrefix.hidden(rules)
+    : rules
   return Record.filter(
     input.tools,
     (_, k) =>
