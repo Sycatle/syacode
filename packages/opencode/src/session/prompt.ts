@@ -22,6 +22,8 @@ import { ForkSystemPrompt } from "@opencode-fork/core/system-prompt"
 import { ForkPreload } from "./fork-preload"
 import { ForkSessionMessaging } from "./fork-messaging"
 import { ForkWakeup } from "@opencode-fork/core/wakeup"
+import { ForkWrapup } from "@opencode-fork/core/wrapup"
+import { ForkQuota } from "@opencode-fork/core/quota"
 import { ForkHooks } from "@opencode-fork/core/hooks"
 import { ToolRegistry } from "@/tool/registry"
 import { MCP } from "../mcp"
@@ -1129,6 +1131,9 @@ const layer = Layer.effect(
         const ctx = yield* InstanceState.context
         let structured: unknown
         let step = 0
+        // FORK-SEAM: wrap-up (the close-out compaction runs once per prompt, whatever happens to it)
+        let closed = false
+        let keepWorking = false
         const session = yield* sessions.get(sessionID).pipe(Effect.orDie)
 
         while (true) {
@@ -1292,7 +1297,27 @@ const layer = Layer.effect(
             yield* events.publish(Session.Event.Error, { sessionID, error: error.toObject() })
             break
           }
-          const isLastStep = step >= maxSteps || budget.state === "wrap-up"
+          // FORK-SEAM: wrap-up (near a subscription limit or the budget, compact while the cache is warm, then resume)
+          const limit = ForkWrapup.quota(ForkQuota.fresh(model.providerID), Date.now())
+          // Already closed for this window by an earlier prompt: the user chose to keep going until the hard limit.
+          if (limit.state === "wrap-up" && !closed && ForkWakeup.get(sessionID)?.due === ForkWrapup.dueAt(limit.reset)) {
+            closed = true
+            keepWorking = true
+          }
+          const closing = budget.state === "wrap-up" || (limit.state === "wrap-up" && !keepWorking)
+          if (closing && !closed && !session.parentID) {
+            closed = true
+            if (limit.state === "wrap-up")
+              ForkWakeup.set({
+                sessionID,
+                due: ForkWrapup.dueAt(limit.reset),
+                prompt: ForkWrapup.resumePrompt(),
+                reason: "usage window",
+              })
+            yield* compaction.create({ sessionID, agent: lastUser.agent, model: lastUser.model, auto: false })
+            continue
+          }
+          const isLastStep = step >= maxSteps || closing
           msgs = yield* SessionReminders.apply({ messages: msgs, agent, session, providerID: model.providerID }).pipe(
             Effect.provideService(RuntimeFlags.Service, flags),
             Effect.provideService(FSUtil.Service, fsys),
@@ -1413,7 +1438,12 @@ const layer = Layer.effect(
                   ? [
                       {
                         role: "assistant" as const,
-                        content: budget.state === "wrap-up" ? ForkBudget.PROMPT : MAX_STEPS_PROMPT,
+                        content:
+                          budget.state === "wrap-up"
+                            ? ForkBudget.PROMPT
+                            : limit.state === "wrap-up"
+                              ? ForkWrapup.prompt(limit)
+                              : MAX_STEPS_PROMPT,
                       },
                     ]
                   : []),
@@ -1421,7 +1451,7 @@ const layer = Layer.effect(
               tools,
               model,
               toolChoice:
-                format.type === "json_schema" ? "required" : budget.state === "wrap-up" ? "none" : undefined,
+                format.type === "json_schema" ? "required" : closing ? "none" : undefined,
             })
 
             // FORK-SEAM: route-fallback (nothing was streamed: drop the failed attempt and route the turn again)

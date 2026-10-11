@@ -48,6 +48,16 @@ export const FLAGS = {
     default: "on",
     description: "Claude 5.1+: keep the tool list identical across plan and build so signed thinking blocks stay valid",
   },
+  WRAPUP: {
+    kind: "switch",
+    default: "on",
+    description: "Near a subscription limit: compact while the cache is warm, then resume when the window reopens",
+  },
+  WRAPUP_QUOTA: {
+    kind: "number",
+    default: "0.95",
+    description: "Window utilization (0.95 or 95) at which a session closes and schedules its resumption",
+  },
   CACHED_COMPACTION: { kind: "switch", default: "on", description: "Summarize by replaying the cached last request" },
   SMART_COMPACTION: { kind: "switch", default: "on", description: "Compact at task boundaries and on a cold cache" },
   COMPACT_AT: { kind: "number", default: "0.5", description: "Context ratio for a task-boundary compaction" },

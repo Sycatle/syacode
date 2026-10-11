@@ -16,6 +16,7 @@
     "./context": "./src/context.ts",
     "./budget": "./src/budget.ts",
     "./stable-prefix": "./src/stable-prefix.ts",
+    "./wrapup": "./src/wrapup.ts",
     "./compaction": "./src/compaction.ts",
     "./agents": "./src/agents.ts",
     "./autonomy": "./src/autonomy.ts",
