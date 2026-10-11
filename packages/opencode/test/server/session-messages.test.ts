@@ -156,6 +156,8 @@ describe("session messages endpoint", () => {
       }),
     ),
     { git: true },
+    // Inserting 520 messages takes 8 to 12 s on a loaded machine, more than the default 5 s.
+    30_000,
   )
 
   it.instance(
