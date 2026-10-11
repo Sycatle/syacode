@@ -118,9 +118,10 @@ describe("session.system", () => {
 
       expect(first).toBe(second)
 
-      const alpha = output.indexOf("<name>alpha-skill</name>")
-      const middle = output.indexOf("<name>middle-skill</name>")
-      const zeta = output.indexOf("<name>zeta-skill</name>")
+      // The fork lists one line per skill (`- name: description`), upstream an XML block: only the order is checked.
+      const alpha = output.indexOf("alpha-skill")
+      const middle = output.indexOf("middle-skill")
+      const zeta = output.indexOf("zeta-skill")
 
       expect(alpha).toBeGreaterThan(-1)
       expect(middle).toBeGreaterThan(alpha)
