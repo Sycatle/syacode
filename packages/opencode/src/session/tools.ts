@@ -7,6 +7,8 @@ import { McpCatalog } from "@/mcp/catalog"
 import { ForkTools } from "@opencode-fork/core/tools"
 import { ForkClaudeTools } from "@opencode-fork/core/claude-tools"
 import { ForkStablePrefix } from "@opencode-fork/core/stable-prefix"
+import { ForkWrapup } from "@opencode-fork/core/wrapup"
+import { ForkQuota } from "@opencode-fork/core/quota"
 import { Permission } from "@/permission"
 import { ForkSystemPrompt } from "@opencode-fork/core/system-prompt"
 import { Tool } from "@/tool/tool"
@@ -129,7 +131,15 @@ export const resolve = Effect.fn("SessionTools.resolve")(function* (input: {
                 [item.id],
                 Permission.merge(input.agent.permission, input.session.permission ?? []),
               ).has(item.id)
-            const result = refused
+            // FORK-SEAM: wrap-up (a window winding down: no new subagents, workflows or background jobs; they stay listed)
+            const winding = ForkWrapup.quota(ForkQuota.fresh(input.model.providerID), Date.now())
+            const newWork =
+              winding.state === "wind-down" &&
+              (ForkWrapup.NEW_WORK_TOOLS.some((tool) => tool === item.id) ||
+                (item.id === "bash" && isRecord(args) && args.background === true))
+            const result = newWork && winding.state === "wind-down"
+              ? { title: item.id, metadata: {}, output: ForkWrapup.refusal(item.id, winding), attachments: undefined }
+              : refused
               ? {
                   title: item.id,
                   metadata: {},

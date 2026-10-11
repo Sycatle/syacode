@@ -86,3 +86,10 @@ test("built-in line shows the routed model and a pending wakeup, nothing otherwi
   expect(ForkStatusline.builtin({ compaction: { code: "below-threshold" } }, now)).toBe("")
   expect(ForkStatusline.builtin({ jevPausedUntil: now + 4 * 60_000 }, now)).toBe("Jev failing, paused for 4m")
 })
+
+test("the built-in line says when a window is winding down or closing", () => {
+  const now = 1_000_000
+  const window = { used: 0.88, reset: now + 90 * 60_000 }
+  expect(ForkStatusline.builtin({ window: { state: "wind-down", ...window } }, now)).toBe("winding down: window at 88%, reopens in 1h30")
+  expect(ForkStatusline.builtin({ window: { state: "wrap-up", ...window } }, now)).toContain("closing: window at 88%")
+})

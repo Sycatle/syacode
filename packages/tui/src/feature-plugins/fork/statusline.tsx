@@ -9,6 +9,7 @@ import { ForkQuota } from "@opencode-fork/core/quota"
 import { ForkRouteLog } from "@opencode-fork/core/route-log"
 import { ForkStatusline } from "@opencode-fork/core/statusline"
 import { ForkWakeup } from "@opencode-fork/core/wakeup"
+import { ForkWrapup } from "@opencode-fork/core/wrapup"
 import { useTerminalDimensions } from "@opentui/solid"
 import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js"
 import type { BuiltinTuiPlugin } from "../builtins"
@@ -113,9 +114,16 @@ function BuiltinLine(props: { api: TuiPluginApi }) {
     const session = sessionID(props.api)
     if (!session) return ""
     const wakeup = ForkWakeup.enabled() ? ForkWakeup.get(session) : undefined
+    const route = ForkRouteLog.latest(session)
+    const last = props.api.state.session
+      .messages(session)
+      .findLast((item): item is AssistantMessage => item.role === "assistant")
+    const provider = last?.providerID ?? route?.provider_id
+    const window = provider ? ForkWrapup.quota(ForkQuota.fresh(provider), Date.now()) : undefined
     return ForkStatusline.firstLine(
       ForkStatusline.builtin({
-        route: ForkRouteLog.latest(session),
+        route,
+        window: window && window.state !== "ok" ? window : undefined,
         auto: ForkClassifier.decisions(session),
         compaction: ForkCompactionLog.latest(session),
         jevPausedUntil: process.env.TYPESAFE_API_KEY ? ForkJev.pausedUntil() : undefined,

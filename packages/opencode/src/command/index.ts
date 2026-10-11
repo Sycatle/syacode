@@ -10,6 +10,7 @@ import { Skill } from "../skill"
 import PROMPT_INITIALIZE from "./template/initialize.txt"
 import PROMPT_REVIEW from "./template/review.txt"
 import { ForkWakeup } from "@opencode-fork/core/wakeup"
+import { ForkWrapup } from "@opencode-fork/core/wrapup"
 import { LegacyEvent } from "@opencode-ai/schema/legacy-event"
 
 type State = {
@@ -93,6 +94,16 @@ const layer = Layer.effect(
         commands.loop = {
           name: "loop",
           description: ForkWakeup.LOOP_DESCRIPTION,
+          source: "command",
+          template: "$ARGUMENTS",
+          hints: ["$ARGUMENTS"],
+        }
+
+      // FORK-SEAM: wrap-up
+      if (ForkWrapup.enabled())
+        commands.wrapup = {
+          name: "wrapup",
+          description: ForkWrapup.WRAPUP_DESCRIPTION,
           source: "command",
           template: "$ARGUMENTS",
           hints: ["$ARGUMENTS"],

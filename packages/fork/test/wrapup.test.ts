@@ -11,7 +11,7 @@ const snapshot = (five: number, seven = 0.1, over: { status?: string; reset?: nu
 })
 
 test("a session closes at the threshold, not before", () => {
-  expect(ForkWrapup.quota(snapshot(0.9), NOW, 0.95).state).toBe("ok")
+  expect(ForkWrapup.quota(snapshot(0.8), NOW, 0.95).state).toBe("ok")
   const state = ForkWrapup.quota(snapshot(0.96), NOW, 0.95)
   expect(state).toMatchObject({ state: "wrap-up", window: "five_hour", reset: NOW + 3_600_000 })
 })
@@ -38,4 +38,20 @@ test("the threshold reads a ratio or a percentage and can be switched off", () =
   process.env.OPENCODE_FORK_WRAPUP = "0"
   expect(ForkWrapup.quota(snapshot(0.99), NOW).state).toBe("ok")
   delete process.env.OPENCODE_FORK_WRAPUP
+})
+
+test("a window winds down before it closes", () => {
+  expect(ForkWrapup.quota(snapshot(0.84), NOW, 0.95).state).toBe("ok")
+  expect(ForkWrapup.quota(snapshot(0.86), NOW, 0.95)).toMatchObject({ state: "wind-down", window: "five_hour", used: 0.86 })
+  expect(ForkWrapup.quota(snapshot(0.96), NOW, 0.95).state).toBe("wrap-up")
+})
+
+test("new work is refused while winding down, and /wrapup is consumed once", () => {
+  const state = ForkWrapup.quota(snapshot(0.9), NOW, 0.95)
+  if (state.state !== "wind-down") throw new Error("expected wind-down")
+  expect(ForkWrapup.refusal("task", state)).toContain("5-hour usage window is at 90%")
+  expect(ForkWrapup.consume("ses_1")).toBe(false)
+  ForkWrapup.request("ses_1")
+  expect(ForkWrapup.consume("ses_1")).toBe(true)
+  expect(ForkWrapup.consume("ses_1")).toBe(false)
 })

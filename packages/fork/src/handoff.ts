@@ -20,7 +20,7 @@ export function minTokens(env: Record<string, string | undefined> = process.env)
   return Number.isFinite(value) && value >= 0 && env.OPENCODE_FORK_HANDOFF_MIN ? value : DEFAULT_MIN_TOKENS
 }
 
-export type Reason = "provider-switch" | "failover" | "usage-window" | "budget"
+export type Reason = "provider-switch" | "failover" | "usage-window" | "manual"
 
 export type Checkpoint = {
   time: number

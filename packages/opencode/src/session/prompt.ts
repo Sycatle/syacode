@@ -22,6 +22,7 @@ import { ForkSystemPrompt } from "@opencode-fork/core/system-prompt"
 import { ForkPreload } from "./fork-preload"
 import { ForkSessionMessaging } from "./fork-messaging"
 import { ForkWakeup } from "@opencode-fork/core/wakeup"
+import { ForkHandoff } from "@opencode-fork/core/handoff"
 import { ForkWrapup } from "@opencode-fork/core/wrapup"
 import { ForkHandoffRun } from "./fork-handoff"
 import { ForkQuota } from "@opencode-fork/core/quota"
@@ -1135,6 +1136,7 @@ const layer = Layer.effect(
         // FORK-SEAM: wrap-up (the close-out compaction runs once per prompt, whatever happens to it)
         let closed = false
         let keepWorking = false
+        let manual = false
         const session = yield* sessions.get(sessionID).pipe(Effect.orDie)
 
         while (true) {
@@ -1319,21 +1321,32 @@ const layer = Layer.effect(
             yield* events.publish(Session.Event.Error, { sessionID, error: error.toObject() })
             break
           }
-          // FORK-SEAM: wrap-up (near a subscription limit or the budget, compact while the cache is warm, then resume)
+          // FORK-SEAM: wrap-up (near a subscription limit, compact while the cache is warm, then resume; /wrapup does it now)
           const limit = ForkWrapup.quota(ForkQuota.fresh(model.providerID), Date.now())
+          if (ForkWrapup.consume(sessionID)) manual = true
           // Already closed for this window by an earlier prompt: the user chose to keep going until the hard limit.
           if (limit.state === "wrap-up" && !closed && ForkWakeup.get(sessionID)?.due === ForkWrapup.dueAt(limit.reset)) {
             closed = true
             keepWorking = true
           }
-          const closing = budget.state === "wrap-up" || (limit.state === "wrap-up" && !keepWorking)
-          if (closing && !closed && !session.parentID) {
+          const closing = budget.state === "wrap-up" || manual || (limit.state === "wrap-up" && !keepWorking)
+          if ((manual || limit.state === "wrap-up") && closing && !closed && !session.parentID) {
             closed = true
-            if (limit.state === "wrap-up")
+            const resumeAt = !manual && limit.state === "wrap-up" ? ForkWrapup.dueAt(limit.reset) : undefined
+            const point = yield* ForkHandoffRun.checkpoint({
+              sessionID,
+              directory: ctx.directory,
+              messages: msgs,
+              reason: manual ? "manual" : "usage-window",
+              from: `${model.providerID}/${model.id}`,
+              context: lastFinished ? lastFinished.tokens.input + lastFinished.tokens.cache.read + lastFinished.tokens.cache.write : 0,
+              resumeAt,
+            })
+            if (resumeAt)
               ForkWakeup.set({
                 sessionID,
-                due: ForkWrapup.dueAt(limit.reset),
-                prompt: ForkWrapup.resumePrompt(),
+                due: resumeAt,
+                prompt: `${ForkWrapup.resumePrompt()}\n\n${ForkHandoff.render(point)}`,
                 reason: "usage window",
               })
             yield* compaction.create({ sessionID, agent: lastUser.agent, model: lastUser.model, auto: false })
@@ -1463,9 +1476,11 @@ const layer = Layer.effect(
                         content:
                           budget.state === "wrap-up"
                             ? ForkBudget.PROMPT
-                            : limit.state === "wrap-up"
-                              ? ForkWrapup.prompt(limit)
-                              : MAX_STEPS_PROMPT,
+                            : manual
+                              ? ForkWrapup.MANUAL_PROMPT
+                              : limit.state === "wrap-up"
+                                ? ForkWrapup.prompt(limit)
+                                : MAX_STEPS_PROMPT,
                       },
                     ]
                   : []),
@@ -1584,7 +1599,10 @@ const layer = Layer.effect(
         yield* events.publish(Session.Event.Error, { sessionID: input.sessionID, error: error.toObject() })
         throw error
       }
-      const commandArguments = loop?.prompt ?? input.arguments
+      // FORK-SEAM: wrap-up
+      const closing = ForkWrapup.enabled() && cmd.description === ForkWrapup.WRAPUP_DESCRIPTION
+      if (closing) ForkWrapup.request(input.sessionID)
+      const commandArguments = loop?.prompt ?? (closing && !input.arguments.trim() ? "Close the session now." : input.arguments)
 
       const raw = commandArguments.match(argsRegex) ?? []
       const args = raw.map((arg) => arg.replace(quoteTrimRegex, ""))

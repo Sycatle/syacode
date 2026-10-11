@@ -73,6 +73,8 @@ export function builtin(
     compaction?: { code: string }
     // End of a Jev pause (see ForkJev.pausedUntil): every Jev feature runs on its fallback until then.
     jevPausedUntil?: number
+    // The usage window closest to its limit (see ForkWrapup.quota); nothing while it is "ok".
+    window?: { state: "wind-down" | "wrap-up"; used: number; reset: number }
   },
   now = Date.now(),
 ) {
@@ -89,8 +91,11 @@ export function builtin(
   const asked = (data.auto?.length ?? 0) - approved
   const auto = data.auto?.length ? `auto: ${approved} approved${asked ? `, ${asked} asked` : ""}` : undefined
   const compaction = data.compaction && DEFERRED[data.compaction.code]
+  const window =
+    data.window &&
+    `${data.window.state === "wrap-up" ? "closing" : "winding down"}: window at ${Math.round(data.window.used * 100)}%, reopens in ${duration(data.window.reset - now)}`
   const jev = data.jevPausedUntil && `Jev failing, paused for ${duration(data.jevPausedUntil - now)}`
-  return [route, auto, compaction, jev, wakeup].filter((part): part is string => !!part).join("  ·  ")
+  return [route, window, auto, compaction, jev, wakeup].filter((part): part is string => !!part).join("  ·  ")
 }
 
 const DEFERRED: Record<string, string> = {

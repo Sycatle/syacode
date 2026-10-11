@@ -273,9 +273,10 @@ it.instance("a model picked by hand fails over to another provider when its quot
     const prompt = yield* SessionPrompt.Service
 
     // The title is generated on the same server: only the turn itself is refused.
-    const turn = (hit: { body: Record<string, unknown> }) => !JSON.stringify(hit.body).includes("title") && hit.body.model === "quick-model"
-    yield* llm.pushMatch(turn, httpError(402, { error: { message: "You exceeded your current quota", type: "insufficient_quota" } }))
-    yield* llm.textMatch((hit) => hit.body.model === "backup-model", "done on the backup")
+    const turnOn = (model: string) => (hit: { body: Record<string, unknown> }) =>
+      !JSON.stringify(hit.body).includes("title") && hit.body.model === model
+    yield* llm.pushMatch(turnOn("quick-model"), httpError(402, { error: { message: "You exceeded your current quota", type: "insufficient_quota" } }))
+    yield* llm.textMatch(turnOn("backup-model"), "done on the backup")
     yield* prompt.prompt({
       sessionID: session.id,
       model: { providerID: "test", modelID: "quick-model" } as never,
