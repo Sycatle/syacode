@@ -671,10 +671,11 @@ const layer = Layer.effect(
       const config = cfg.mcp ?? {}
       const defaultTimeout = cfg.experimental?.mcp_timeout
 
-      for (const [clientName, client] of Object.entries(s.clients)) {
+      // FORK-SEAM: mcp-tool-order (servers connect in whatever order they answer; a stable order keeps the prompt prefix cached)
+      for (const [clientName, client] of Object.entries(s.clients).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
         if (s.status[clientName]?.status !== "connected") continue
         const mcpConfig = config[clientName]
-        const listed = s.defs[clientName]
+        const listed = s.defs[clientName]?.toSorted((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
         if (!listed) {
           yield* Effect.logWarning("missing cached tools for connected server", { clientName })
           continue

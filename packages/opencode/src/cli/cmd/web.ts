@@ -3,6 +3,7 @@ import { UI } from "../ui"
 import { effectCmd } from "../effect-cmd"
 import { withNetworkOptions, resolveNetworkOptions } from "../network"
 import { Flag } from "@opencode-ai/core/flag/flag"
+import { ForkCache } from "@opencode-fork/core/cache"
 import { openUrl } from "@opencode-ai/core/open"
 import { networkInterfaces } from "os"
 
@@ -36,6 +37,8 @@ export const WebCommand = effectCmd({
   // ambient project InstanceContext needed at startup.
   instance: false,
   handler: Effect.fn("Cli.web")(function* (args) {
+    // FORK-SEAM: cache-ttl (web sessions pause between turns)
+    process.env.OPENCODE_FORK_CACHE_TTL ??= ForkCache.INTERACTIVE_TTL
     const { Server } = yield* Effect.promise(() => import("../../server/server"))
     if (!Flag.OPENCODE_SERVER_PASSWORD) {
       UI.println(UI.Style.TEXT_WARNING_BOLD + "!  OPENCODE_SERVER_PASSWORD is not set; server is unsecured.")
