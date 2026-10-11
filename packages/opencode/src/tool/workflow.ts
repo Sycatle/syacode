@@ -110,7 +110,9 @@ export const WorkflowTool = Tool.define(
               Effect.sync(() => {
                 appendFileSync(log, `$ ${command.join(" ")}\n`)
                 const fd = openSync(log, "a")
-                return { fd, proc: Bun.spawn(command, { cwd: instance.directory, stdout: "pipe", stderr: fd }) }
+                // env is explicit: Bun gives a child the environment the process started with, not later changes to
+                // process.env, so a child would open another fork.db than its parent.
+                return { fd, proc: Bun.spawn(command, { cwd: instance.directory, env: process.env, stdout: "pipe", stderr: fd }) }
               }),
               (child) =>
                 Effect.promise(async () => ({
