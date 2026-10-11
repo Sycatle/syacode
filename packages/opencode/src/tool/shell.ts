@@ -726,8 +726,8 @@ export const ShellTool = Tool.define(
     ) {
       const running = (yield* background.list()).filter(
         (job) => job.type === ForkShell.JOB_TYPE && job.status === "running",
-      ).length
-      if (ForkShell.atCap(running)) throw new Error(ForkShell.capMessage(running))
+      )
+      if (ForkShell.atCap(running.length)) throw new Error(ForkShell.capMessage(running.length, running))
 
       const file = yield* trunc.write("")
       const job = yield* background.start({

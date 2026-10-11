@@ -36,6 +36,7 @@ import { McpEvent } from "@opencode-ai/schema/mcp-event"
 import { McpBrowser } from "./browser"
 
 const DEFAULT_TIMEOUT = 30_000
+const RECONNECT_DELAYS_MS = [2_000, 10_000, 30_000]
 const CLIENT_OPTIONS = {
   capabilities: {
     // https://github.com/anomalyco/opencode/issues/11948
@@ -439,6 +440,19 @@ const layer = Layer.effect(
       Effect.catch(() => Effect.succeed([] as number[])),
     )
 
+    // A closed connection is retried a few times with growing pauses. A server disconnected on purpose is "disabled",
+    // and one that came back by another route has a client again: both end the retries.
+    const reconnect = Effect.fn("MCP.reconnect")(function* (name: string) {
+      for (const wait of RECONNECT_DELAYS_MS) {
+        yield* Effect.sleep(wait)
+        const s = yield* InstanceState.get(state)
+        const status = () => s.status[name]?.status
+        if (s.clients[name] || status() !== "failed") return
+        yield* connect(name)
+        if (status() === "connected") return
+      }
+    })
+
     function watch(s: State, name: string, client: MCPClient, bridge: EffectBridge.Shape, timeout?: number) {
       client.onclose = () => {
         if (s.clients[name] !== client) return
@@ -452,6 +466,8 @@ const layer = Layer.effect(
             Effect.ignore,
           ),
         )
+        // FORK-SEAM: mcp-reconnect (a server that dies mid-session was gone until the next config reload)
+        bridge.fork(reconnect(name).pipe(Effect.ignore))
       }
 
       client.setNotificationHandler(LoggingMessageNotificationSchema, (notification) =>

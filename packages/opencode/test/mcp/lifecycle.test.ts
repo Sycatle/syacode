@@ -558,3 +558,30 @@ it.live("McpOAuthCallback.cancelPending rejects the pending callback", () =>
     () => Effect.promise(() => McpOAuthCallback.stop()).pipe(Effect.ignore),
   ),
 )
+
+it.instance(
+  "a local server that dies mid-session is reconnected",
+  () =>
+    Effect.gen(function* () {
+      const mcp = yield* MCP.Service
+      yield* mcp.add("dies", { type: "local", command: [process.execPath, stdioFixture] })
+      expect((yield* mcp.status()).dies?.status).toBe("connected")
+
+      Bun.spawnSync(["pkill", "-f", stdioFixture])
+      yield* pollWithTimeout(
+        Effect.gen(function* () {
+          return (yield* mcp.status()).dies?.status === "failed" ? true : undefined
+        }),
+        "the closed server was not marked failed",
+        "5 seconds",
+      )
+      yield* pollWithTimeout(
+        Effect.gen(function* () {
+          return (yield* mcp.status()).dies?.status === "connected" ? true : undefined
+        }),
+        "the closed server was not reconnected",
+        "15 seconds",
+      )
+    }),
+  30_000,
+)

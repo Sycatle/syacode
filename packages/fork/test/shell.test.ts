@@ -17,6 +17,7 @@ test("cap follows the background limit", () => {
   expect(ForkShell.atCap(1)).toBe(false)
   expect(ForkShell.atCap(2)).toBe(true)
   expect(ForkShell.capMessage(2)).toContain("limit 2")
+  expect(ForkShell.capMessage(2, [{ id: "job_1", title: "bun dev" }, { id: "job_2" }])).toContain("Running: job_1 (bun dev), job_2.")
 })
 
 test("tail keeps the last lines", () => {

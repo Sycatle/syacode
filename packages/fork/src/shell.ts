@@ -14,8 +14,9 @@ export function atCap(running: number) {
   return running >= ForkAgents.maxBackground()
 }
 
-export function capMessage(running: number) {
-  return `${running} background shell commands are already running (limit ${ForkAgents.maxBackground()}). Stop one with shell_kill or wait for one to finish.`
+export function capMessage(running: number, jobs: readonly { id: string; title?: string }[] = []) {
+  const list = jobs.map((job) => `${job.id}${job.title ? ` (${job.title.slice(0, 60)})` : ""}`).join(", ")
+  return `${running} background shell commands are already running (limit ${ForkAgents.maxBackground()}). Stop one with shell_kill or wait for one to finish.${list ? ` Running: ${list}.` : ""}`
 }
 
 export function tail(text: string, lines: number) {
