@@ -390,6 +390,7 @@ database tools
 Commands:
   syacode db [query]     open an interactive sqlite3 shell or run a query                  [default]
   syacode db path        print the database path
+  syacode db prune       shrink the event log, then vacuum
 
 Positionals:
   query  SQL query to execute                                                               [string]

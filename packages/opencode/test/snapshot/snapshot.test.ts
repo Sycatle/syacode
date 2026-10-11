@@ -4,8 +4,10 @@ import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import { FSUtil } from "@opencode-ai/core/fs-util"
 import fs from "fs/promises"
+import { existsSync, readFileSync } from "fs"
 import path from "path"
 import { Effect, Fiber, Layer } from "effect"
+import { Global } from "@opencode-ai/core/global"
 import { Snapshot } from "../../src/snapshot"
 import {
   disposeAllInstances,
@@ -1215,4 +1217,36 @@ it.instance(
     for (const file of fresh) expect(yield* exists(file)).toBe(false)
   }),
   { git: true },
+)
+
+it.live(
+  "cleanup drops alternates whose source repo no longer exists",
+  Effect.gen(function* () {
+    const tmp = yield* bootstrapScoped()
+    yield* Effect.gen(function* () {
+      const snapshot = yield* Snapshot.Service
+      expect(yield* snapshot.track()).toBeTruthy()
+      const project = yield* Effect.promise(() => fs.readdir(path.join(Global.Path.data, "snapshot")))
+      const gitdirs = yield* Effect.promise(async () =>
+        (
+          await Promise.all(
+            project.map(async (id) => {
+              const base = path.join(Global.Path.data, "snapshot", id)
+              return (await fs.readdir(base)).map((hash) => path.join(base, hash))
+            }),
+          )
+        ).flat(),
+      )
+      // The seed points the snapshot repo's alternates at this repository's objects.
+      const gitdir = gitdirs.find((dir) => {
+        const alternates = path.join(dir, "objects", "info", "alternates")
+        return existsSync(alternates) && readFileSync(alternates, "utf8").includes(tmp.path)
+      })!
+      const file = path.join(gitdir, "objects", "info", "alternates")
+      const gone = path.join(tmp.path, "deleted-source", ".git", "objects")
+      yield* write(file, `${yield* readText(file)}${gone}\n`)
+      yield* snapshot.cleanup()
+      expect(yield* readText(file)).not.toContain(gone)
+    }).pipe(provideInstance(tmp.path))
+  }),
 )

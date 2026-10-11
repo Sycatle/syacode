@@ -21,6 +21,8 @@ export const FileDiff = Info
 export type FileDiff = typeof FileDiff.Type
 
 const prune = "7.days"
+// Snapshot repos whose gc failed on unreadable objects; retried only after a restart.
+const unreadable = new Set<string>()
 const limit = 2 * 1024 * 1024
 const core = ["-c", "core.longpaths=true", "-c", "core.symlinks=true"]
 const cfg = ["-c", "core.autocrlf=false", ...core]
@@ -297,17 +299,35 @@ const layer: Layer.Layer<Service, never, FSUtil.Service | AppProcess.Service | C
           yield* stage(allow.filter((item) => !block.has(item)))
         })
 
+        const dropDanglingAlternates = Effect.fnUntraced(function* () {
+          const file = path.join(state.gitdir, "objects", "info", "alternates")
+          const lines = (yield* read(file))
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean)
+          const alive: string[] = []
+          for (const line of lines) if (yield* exists(line)) alive.push(line)
+          if (alive.length === lines.length) return
+          yield* Effect.logWarning("dropping alternates that no longer exist", { dropped: lines.length - alive.length })
+          yield* fs.writeFileString(file, alive.length ? alive.join("\n") + "\n" : "").pipe(Effect.orDie)
+        })
+
         const cleanup = Effect.fnUntraced(function* () {
           return yield* locked(
             Effect.gen(function* () {
               if (!(yield* enabled())) return
               if (!(yield* exists(state.gitdir))) return
+              // FORK-SEAM: snapshot-alternates (a source repo deleted since the seed breaks every gc that follows)
+              if (unreadable.has(state.gitdir)) return
+              yield* dropDanglingAlternates()
               const result = yield* git(args(["gc", `--prune=${prune}`]), { cwd: state.directory })
               if (result.code !== 0) {
                 yield* Effect.logWarning("cleanup failed", {
                   exitCode: result.code,
                   stderr: result.stderr,
                 })
+                // The same objects are missing next hour: stop retrying until the process restarts.
+                if (/unable to read|bad object|missing (blob|tree|commit)/.test(result.stderr)) unreadable.add(state.gitdir)
                 return
               }
               yield* Effect.logInfo("cleanup", { prune })

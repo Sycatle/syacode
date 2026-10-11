@@ -121,7 +121,9 @@ const layer = Layer.effect(
       )
       const target = messages.find((m) => m.info.id === input.messageID)
       if (!target || target.info.role !== "user") return
-      const msgDiffs = yield* computeDiff({ messages })
+      const msgDiffs = slim(yield* computeDiff({ messages }))
+      // FORK-SEAM: event-size (every update is a durable event holding the whole message, patches included)
+      if (JSON.stringify(target.info.summary?.diffs) === JSON.stringify(msgDiffs)) return
       target.info.summary = { ...target.info.summary, diffs: msgDiffs }
       yield* sessions.updateMessage(target.info)
     })
@@ -144,6 +146,19 @@ const layer = Layer.effect(
     return Service.of({ summarize, diff, computeDiff })
   }),
 )
+
+// A summary is re-emitted after every step, with the same patches each time: one 4.7 MB message made up most of
+// a 2.2 GB event log. Past this size the file keeps its counts but loses the patch body; so do secret files.
+const MAX_PATCH_CHARS = 200_000
+const SECRET_FILE = /(^|\/)\.env(\.|$)|\.(enc|pem|key)$/
+
+export function slim(diffs: readonly Snapshot.FileDiff[]): Snapshot.FileDiff[] {
+  return diffs.map((item) =>
+    item.patch !== undefined && (item.patch.length > MAX_PATCH_CHARS || SECRET_FILE.test(item.file ?? ""))
+      ? { ...item, patch: undefined }
+      : item,
+  )
+}
 
 export const DiffInput = Schema.Struct({
   sessionID: SessionID,
