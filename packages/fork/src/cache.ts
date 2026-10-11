@@ -37,7 +37,8 @@ export function authCacheEnabled() {
 }
 
 export function isMessagesRequest(input: unknown) {
-  const url = typeof input === "string" ? input : input instanceof URL ? input.href : isRecord(input) ? input.url : undefined
+  const url =
+    typeof input === "string" ? input : input instanceof URL ? input.href : isRecord(input) ? input.url : undefined
   return typeof url === "string" && new URL(url, "http://local").pathname.endsWith("/v1/messages")
 }
 
@@ -69,7 +70,8 @@ export function pinFirstUserMessage(body: unknown) {
   // first message's earlier blocks) is promoted too; later message markers stay at 5m.
   const earlier = [...(Array.isArray(parsed.tools) ? parsed.tools : []), ...blocks.slice(0, -1)]
   earlier.forEach((block) => {
-    if (isRecord(block) && isRecord(block.cache_control)) block.cache_control = { ...block.cache_control, ttl: INTERACTIVE_TTL }
+    if (isRecord(block) && isRecord(block.cache_control))
+      block.cache_control = { ...block.cache_control, ttl: INTERACTIVE_TTL }
   })
   last.cache_control = { type: "ephemeral", ttl: INTERACTIVE_TTL }
   user.content = blocks

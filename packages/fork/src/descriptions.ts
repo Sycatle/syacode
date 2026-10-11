@@ -43,11 +43,11 @@ const STATIC: Record<string, string> = {
     "Prefer editing existing files; create new files, documentation or README files only when required or asked. No emojis unless asked.",
   ].join("\n"),
   grep: [
-    "Search file contents with a regular expression; filter files with include (e.g. \"*.{ts,tsx}\"). Returns paths, line numbers and matching lines.",
+    'Search file contents with a regular expression; filter files with include (e.g. "*.{ts,tsx}"). Returns paths, line numbers and matching lines.',
     "To count matches, run `rg` with Bash (not grep). For open-ended multi-round searches, use Task.",
   ].join("\n"),
   glob: [
-    "Find files by glob pattern (e.g. \"src/**/*.ts\"). Returns matching paths.",
+    'Find files by glob pattern (e.g. "src/**/*.ts"). Returns matching paths.',
     "Batch several searches in one message. For open-ended multi-round searches, use Task.",
   ].join("\n"),
   webfetch: [

@@ -50,17 +50,19 @@ export function record(input: { sessionID: string; messageID: string; phase: Pha
 
 export function latest(sessionID: string) {
   return (
-    table().query<Row, [string]>("SELECT * FROM fork_compaction WHERE session_id = ? ORDER BY id DESC LIMIT 1").get(sessionID) ??
-    undefined
+    table()
+      .query<Row, [string]>("SELECT * FROM fork_compaction WHERE session_id = ? ORDER BY id DESC LIMIT 1")
+      .get(sessionID) ?? undefined
   )
 }
 
 // Oldest first.
 export function list(sessionID: string, limit = 200) {
   return table()
-    .query<Row, [string, number]>(
-      "SELECT * FROM (SELECT * FROM fork_compaction WHERE session_id = ? ORDER BY id DESC LIMIT ?) ORDER BY id",
-    )
+    .query<
+      Row,
+      [string, number]
+    >("SELECT * FROM (SELECT * FROM fork_compaction WHERE session_id = ? ORDER BY id DESC LIMIT ?) ORDER BY id")
     .all(sessionID, limit)
 }
 

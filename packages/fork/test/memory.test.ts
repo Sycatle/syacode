@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test"
-import { Global } from "@opencode-ai/core/global"
+import { Path } from "@opencode/util/global"
 import { ForkMemory } from "../src/memory"
 
 describe("ForkMemory", () => {
   test("dir is scoped by project under the data dir", () => {
-    expect(ForkMemory.dir("abc")).toBe(`${Global.Path.data}/memory/abc`)
+    expect(ForkMemory.dir("abc")).toBe(`${Path.data}/memory/abc`)
   })
 
   test("readIndex reads MEMORY.md through the injected reader", async () => {

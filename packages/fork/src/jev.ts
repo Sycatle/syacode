@@ -105,10 +105,15 @@ const BREAKER = "breaker"
 // When the breaker of a process opened less than BREAKER_MS ago and no call succeeded since: the end of the pause.
 export function pausedUntil(now = Date.now()) {
   const opened = table()
-    .query<{ id: number; time: number }, [string]>("SELECT id, time FROM fork_jev WHERE feature = ? ORDER BY id DESC LIMIT 1")
+    .query<
+      { id: number; time: number },
+      [string]
+    >("SELECT id, time FROM fork_jev WHERE feature = ? ORDER BY id DESC LIMIT 1")
     .get(BREAKER)
   if (!opened || opened.time + BREAKER_MS <= now) return undefined
-  const since = table().query<{ id: number }, [number]>("SELECT id FROM fork_jev WHERE ok = 1 AND id > ? LIMIT 1").get(opened.id)
+  const since = table()
+    .query<{ id: number }, [number]>("SELECT id FROM fork_jev WHERE ok = 1 AND id > ? LIMIT 1")
+    .get(opened.id)
   return since ? undefined : opened.time + BREAKER_MS
 }
 
@@ -122,8 +127,7 @@ export async function ask(
 ): Promise<Result> {
   const breaker = breakers.get(fetcher) ?? { failures: 0, until: 0 }
   breakers.set(fetcher, breaker)
-  if (breaker.until > Date.now())
-    return { error: `Jev paused after ${BREAKER_FAILURES} failures in a row`, ms: 0 }
+  if (breaker.until > Date.now()) return { error: `Jev paused after ${BREAKER_FAILURES} failures in a row`, ms: 0 }
   const result = await post(input, env, fetcher, timeoutMs)
   // A call the caller cancelled says nothing about Jev's health.
   if (result.error !== undefined && !input.signal?.aborted) {

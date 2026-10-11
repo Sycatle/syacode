@@ -75,9 +75,10 @@ export function recent(limit: number, sessionID?: string) {
 // Decisions of a session, newest first.
 export function decisions(sessionID: string, limit: number) {
   return table()
-    .query<Row, [string, number]>(
-      "SELECT * FROM fork_route WHERE session_id = ? AND kind = 'decision' ORDER BY id DESC LIMIT ?",
-    )
+    .query<
+      Row,
+      [string, number]
+    >("SELECT * FROM fork_route WHERE session_id = ? AND kind = 'decision' ORDER BY id DESC LIMIT ?")
     .all(sessionID, limit)
 }
 
@@ -85,9 +86,10 @@ export function decisions(sessionID: string, limit: number) {
 export function forMessage(sessionID: string, messageID: string) {
   return (
     table()
-      .query<Row, [string, string]>(
-        "SELECT * FROM fork_route WHERE session_id = ? AND message_id = ? ORDER BY id DESC LIMIT 1",
-      )
+      .query<
+        Row,
+        [string, string]
+      >("SELECT * FROM fork_route WHERE session_id = ? AND message_id = ? ORDER BY id DESC LIMIT 1")
       .get(sessionID, messageID) ?? undefined
   )
 }
@@ -95,8 +97,9 @@ export function forMessage(sessionID: string, messageID: string) {
 // The latest row of a session, whatever its kind: the model the session is running on.
 export function latest(sessionID: string) {
   return (
-    table().query<Row, [string]>("SELECT * FROM fork_route WHERE session_id = ? ORDER BY id DESC LIMIT 1").get(sessionID) ??
-    undefined
+    table()
+      .query<Row, [string]>("SELECT * FROM fork_route WHERE session_id = ? ORDER BY id DESC LIMIT 1")
+      .get(sessionID) ?? undefined
   )
 }
 
@@ -139,7 +142,8 @@ export function table() {
   // Tables created before effort variants have no `variant` column.
   const columns = db.query<{ name: string }, []>("PRAGMA table_info(fork_route)").all()
   if (!columns.some((column) => column.name === "variant")) db.run("ALTER TABLE fork_route ADD variant TEXT")
-  if (!columns.some((column) => column.name === "provider_reason")) db.run("ALTER TABLE fork_route ADD provider_reason TEXT")
+  if (!columns.some((column) => column.name === "provider_reason"))
+    db.run("ALTER TABLE fork_route ADD provider_reason TEXT")
   db.run("CREATE INDEX IF NOT EXISTS fork_route_session ON fork_route (session_id, id)")
   ready = true
   return db

@@ -10,7 +10,10 @@ export type Pin = { message_id: string; text: string; time: number; auto: number
 
 export function toggle(sessionID: string, messageID: string, text: string) {
   const existing = table()
-    .query<{ n: number }, [string, string]>("SELECT count(*) AS n FROM fork_pins WHERE session_id = ? AND message_id = ?")
+    .query<
+      { n: number },
+      [string, string]
+    >("SELECT count(*) AS n FROM fork_pins WHERE session_id = ? AND message_id = ?")
     .get(sessionID, messageID)
   if (existing?.n) {
     table().query("DELETE FROM fork_pins WHERE session_id = ? AND message_id = ?").run(sessionID, messageID)
@@ -106,7 +109,8 @@ function table() {
   )`)
   // Tables created before automatic pins have no `auto` column.
   const columns = db.query<{ name: string }, []>("PRAGMA table_info(fork_pins)").all()
-  if (!columns.some((column) => column.name === "auto")) db.run("ALTER TABLE fork_pins ADD auto INTEGER NOT NULL DEFAULT 0")
+  if (!columns.some((column) => column.name === "auto"))
+    db.run("ALTER TABLE fork_pins ADD auto INTEGER NOT NULL DEFAULT 0")
   ready = true
   return db
 }

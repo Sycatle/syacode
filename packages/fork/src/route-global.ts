@@ -117,7 +117,9 @@ const rank = (tier: Tier) => TIERS.indexOf(tier)
 // The providers other than `failing` that could take over a turn, best first; empty when none can.
 export function failover(failing: string, input: Omit<Input, "current" | "continuation" | "cold">) {
   return input.providers
-    .filter((view) => view.id !== failing && view.healthy && view.top !== undefined && rank(view.top) >= rank(input.tier))
+    .filter(
+      (view) => view.id !== failing && view.healthy && view.top !== undefined && rank(view.top) >= rank(input.tier),
+    )
     .toSorted(compare)
     .map((view) => view.id)
 }

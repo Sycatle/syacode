@@ -231,7 +231,8 @@ export function leave(sessionID: string) {
 }
 
 export function nameOf(sessionID: string) {
-  return db().query<{ name: string }, [string]>("SELECT name FROM fork_agents WHERE session_id = ?").get(sessionID)?.name
+  return db().query<{ name: string }, [string]>("SELECT name FROM fork_agents WHERE session_id = ?").get(sessionID)
+    ?.name
 }
 
 // Live sessions, most recently active first.

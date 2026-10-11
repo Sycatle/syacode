@@ -33,13 +33,17 @@ export function quota(snapshot: ForkQuota.Snapshot | undefined, now: number, thr
   if (!enabled() || !snapshot) return { state: "ok" }
   const open = (["five_hour", "seven_day"] as const).flatMap((id) => {
     const window = snapshot[id]
-    return window && window.reset > now ? [{ window: id, reset: window.reset, used: window.utilization, rejected: window.status === "rejected" }] : []
+    return window && window.reset > now
+      ? [{ window: id, reset: window.reset, used: window.utilization, rejected: window.status === "rejected" }]
+      : []
   })
   const latest = (hits: typeof open) => hits.toSorted((a, b) => b.reset - a.reset)[0]
   const closing = latest(open.filter((hit) => hit.used >= threshold || hit.rejected))
   if (closing) return { state: "wrap-up", reset: closing.reset, used: closing.used, window: closing.window }
   const winding = latest(open.filter((hit) => hit.used >= threshold - WIND_DOWN_MARGIN))
-  return winding ? { state: "wind-down", reset: winding.reset, used: winding.used, window: winding.window } : { state: "ok" }
+  return winding
+    ? { state: "wind-down", reset: winding.reset, used: winding.used, window: winding.window }
+    : { state: "ok" }
 }
 
 export function dueAt(reset: number) {

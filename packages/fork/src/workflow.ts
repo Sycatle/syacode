@@ -2,7 +2,7 @@ import { ForkFlags } from "./flags"
 import { createHash } from "crypto"
 import { mkdirSync } from "fs"
 import path from "path"
-import { Global } from "@opencode-ai/core/global"
+import { Path } from "@opencode/util/global"
 import { ForkBudget } from "./budget"
 import { ForkTelemetry } from "./telemetry"
 
@@ -70,11 +70,18 @@ export function limiter(limit: number) {
 }
 
 // Each item walks the stages on its own; a failing item yields null and skips its remaining stages.
-export function pipeline(items: readonly unknown[], stages: readonly Stage[], onError: (error: unknown, index: number) => void) {
+export function pipeline(
+  items: readonly unknown[],
+  stages: readonly Stage[],
+  onError: (error: unknown, index: number) => void,
+) {
   return Promise.all(
     items.map(async (item, index) => {
       try {
-        return await stages.reduce<Promise<unknown>>((acc, stage) => acc.then((value) => stage(value, index)), Promise.resolve(item))
+        return await stages.reduce<Promise<unknown>>(
+          (acc, stage) => acc.then((value) => stage(value, index)),
+          Promise.resolve(item),
+        )
       } catch (error) {
         onError(error, index)
         return null
@@ -85,12 +92,15 @@ export function pipeline(items: readonly unknown[], stages: readonly Stage[], on
 
 export function validate(schema: Schema, value: unknown, at = "$"): string[] {
   if (schema.type && !matches(schema.type, value)) return [`${at}: expected ${schema.type}`]
-  if (Array.isArray(value)) return schema.items ? value.flatMap((item, i) => validate(schema.items!, item, `${at}[${i}]`)) : []
+  if (Array.isArray(value))
+    return schema.items ? value.flatMap((item, i) => validate(schema.items!, item, `${at}[${i}]`)) : []
   if (typeof value !== "object" || value === null) return []
   const record = value as Record<string, unknown>
   return [
     ...(schema.required ?? []).filter((key) => !(key in record)).map((key) => `${at}.${key}: missing`),
-    ...Object.entries(schema.properties ?? {}).flatMap(([key, child]) => (key in record ? validate(child, record[key], `${at}.${key}`) : [])),
+    ...Object.entries(schema.properties ?? {}).flatMap(([key, child]) =>
+      key in record ? validate(child, record[key], `${at}.${key}`) : [],
+    ),
   ]
 }
 
@@ -159,9 +169,10 @@ export type Step = { key: string; label: string; session_id: string; result_json
 export function cachedStep(runID: string, key: string) {
   return (
     table()
-      .query<Step, [string, string]>(
-        "SELECT key, label, session_id, result_json, cost FROM fork_workflow_steps WHERE run_id = ? AND key = ?",
-      )
+      .query<
+        Step,
+        [string, string]
+      >("SELECT key, label, session_id, result_json, cost FROM fork_workflow_steps WHERE run_id = ? AND key = ?")
       .get(runID, key) ?? undefined
   )
 }
@@ -204,7 +215,10 @@ export function reapRuns() {
 export function listRuns() {
   reapRuns()
   return table()
-    .query<Run, []>("SELECT id, name, status, cost, started, finished, pid FROM fork_workflow_runs ORDER BY started DESC")
+    .query<
+      Run,
+      []
+    >("SELECT id, name, status, cost, started, finished, pid FROM fork_workflow_runs ORDER BY started DESC")
     .all()
 }
 
@@ -245,7 +259,12 @@ export function createRuntime(input: {
   runID: string
   concurrency: number
   budget?: number
-  execute: (prompt: string, options: AgentOptions, sessionID: string | undefined, started: Started) => Promise<Execution>
+  execute: (
+    prompt: string,
+    options: AgentOptions,
+    sessionID: string | undefined,
+    started: Started,
+  ) => Promise<Execution>
   cost?: (sessionID: string) => number
   progress: (line: string) => void
 }) {
@@ -353,13 +372,22 @@ const META_START = /export\s+const\s+meta\s*=\s*/
 // `meta` must be a pure literal: it is read without running the script (permission pattern, validation).
 export function parseMeta(source: string, options: { first?: boolean } = {}): MetaResult {
   const start = META_START.exec(source)
-  if (!start) return { ok: false, message: "a workflow script must contain `export const meta = { name, description }`" }
-  if (options.first && source.slice(0, start.index).replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "").trim())
+  if (!start)
+    return { ok: false, message: "a workflow script must contain `export const meta = { name, description }`" }
+  if (
+    options.first &&
+    source
+      .slice(0, start.index)
+      .replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "")
+      .trim()
+  )
     return { ok: false, message: "an inline script must begin with `export const meta = { ... }`" }
   const begin = start.index + start[0].length
   const end = literalEnd(source, begin)
   if (end === undefined) return { ok: false, message: "`meta` must be an object literal" }
-  return metaOf(parseLiteral(source.slice(begin, end).replaceAll(/`([^`$\\]*)`/g, (_, text: string) => JSON.stringify(text))))
+  return metaOf(
+    parseLiteral(source.slice(begin, end).replaceAll(/`([^`$\\]*)`/g, (_, text: string) => JSON.stringify(text))),
+  )
 }
 
 // JSON5 accepts unquoted keys, single quotes and trailing commas, and nothing executable.
@@ -400,7 +428,7 @@ function literalEnd(source: string, begin: number) {
 }
 
 export function scriptsDir() {
-  const dir = path.join(Global.Path.data, "workflows")
+  const dir = path.join(Path.data, "workflows")
   mkdirSync(dir, { recursive: true })
   return dir
 }
@@ -409,7 +437,12 @@ export function scriptsDir() {
 export async function writeScript(source: string) {
   const parsed = parseMeta(source, { first: true })
   if (!parsed.ok) throw new Error(parsed.message)
-  const slug = parsed.meta.name.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replaceAll(/^-|-$/g, "").slice(0, 40) || "workflow"
+  const slug =
+    parsed.meta.name
+      .toLowerCase()
+      .replaceAll(/[^a-z0-9]+/g, "-")
+      .replaceAll(/^-|-$/g, "")
+      .slice(0, 40) || "workflow"
   const file = path.join(scriptsDir(), `${slug}-${createHash("sha256").update(source).digest("hex").slice(0, 8)}.js`)
   await Bun.write(file, source)
   return { path: file, meta: parsed.meta }
@@ -436,18 +469,20 @@ export function getRun(id: string) {
   reapRuns()
   return (
     table()
-      .query<Run & { script: string }, [string]>(
-        "SELECT id, script, name, status, cost, started, finished, pid FROM fork_workflow_runs WHERE id = ?",
-      )
+      .query<
+        Run & { script: string },
+        [string]
+      >("SELECT id, script, name, status, cost, started, finished, pid FROM fork_workflow_runs WHERE id = ?")
       .get(id) ?? undefined
   )
 }
 
 export function runSteps(id: string) {
   return table()
-    .query<Step, [string]>(
-      "SELECT key, label, session_id, result_json, cost FROM fork_workflow_steps WHERE run_id = ? ORDER BY time",
-    )
+    .query<
+      Step,
+      [string]
+    >("SELECT key, label, session_id, result_json, cost FROM fork_workflow_steps WHERE run_id = ? ORDER BY time")
     .all(id)
 }
 
@@ -478,10 +513,13 @@ export function renderMessage(input: {
   cost: number
   script: string
 }) {
-  const text = input.result.length > RESULT_LIMIT ? `${input.result.slice(0, RESULT_LIMIT)}\n... (truncated)` : input.result
+  const text =
+    input.result.length > RESULT_LIMIT ? `${input.result.slice(0, RESULT_LIMIT)}\n... (truncated)` : input.result
   return [
     `<workflow id="${input.runID}" name="${input.name}" state="${input.state}" cost="$${input.cost.toFixed(4)}">`,
-    input.state === "completed" ? "Background workflow finished. Returned value:" : "Background workflow did not finish:",
+    input.state === "completed"
+      ? "Background workflow finished. Returned value:"
+      : "Background workflow did not finish:",
     text,
     `Script: ${input.script}. Retry or continue with scriptPath and resumeFromRunId "${input.runID}" (finished agent calls are not re-run).`,
     "</workflow>",

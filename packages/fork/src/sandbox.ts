@@ -54,11 +54,7 @@ export interface PlanInput {
 export function args(input: PlanInput) {
   const base = input.project[0] ?? "/"
   const writable = Array.from(
-    new Set([
-      ...input.project,
-      "/tmp",
-      ...(input.config?.write ?? []).map((item) => expand(item, input.home, base)),
-    ]),
+    new Set([...input.project, "/tmp", ...(input.config?.write ?? []).map((item) => expand(item, input.home, base))]),
   ).filter((item) => input.stat(item) === "dir")
   const denied = Array.from(
     new Set((input.config?.read_deny ?? DEFAULT_READ_DENY).map((item) => expand(item, input.home, base))),

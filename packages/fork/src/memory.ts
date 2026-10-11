@@ -3,7 +3,7 @@
 // per session by the caller so the prompt prefix stays byte-identical between turns.
 import { ForkFlags } from "./flags"
 import path from "path"
-import { Global } from "@opencode-ai/core/global"
+import { Path } from "@opencode/util/global"
 
 export const MAX_LINES = 200
 export const MAX_BYTES = 8 * 1024
@@ -13,7 +13,7 @@ export function enabled() {
 }
 
 export function dir(projectID: string) {
-  return path.join(Global.Path.data, "memory", projectID)
+  return path.join(Path.data, "memory", projectID)
 }
 
 export function permission(projectID: string): Record<string, Record<string, "allow">> {
@@ -23,7 +23,10 @@ export function permission(projectID: string): Record<string, Record<string, "al
 
 export async function readIndex(
   memoryDir: string,
-  read: (file: string) => Promise<string> = (file) => Bun.file(file).text().catch(() => ""),
+  read: (file: string) => Promise<string> = (file) =>
+    Bun.file(file)
+      .text()
+      .catch(() => ""),
 ) {
   return cap(await read(path.join(memoryDir, "MEMORY.md")))
 }
@@ -34,7 +37,9 @@ export function cap(text: string) {
   const kept = lines.slice(0, MAX_LINES).reduce(
     (acc, line) => {
       const bytes = acc.bytes + Buffer.byteLength(line) + 1
-      return bytes > MAX_BYTES || acc.done ? { ...acc, done: true } : { bytes, done: false, lines: [...acc.lines, line] }
+      return bytes > MAX_BYTES || acc.done
+        ? { ...acc, done: true }
+        : { bytes, done: false, lines: [...acc.lines, line] }
     },
     { bytes: 0, done: false, lines: [] as string[] },
   ).lines

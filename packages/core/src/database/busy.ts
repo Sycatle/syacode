@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect"
 import * as Schedule from "effect/Schedule"
-import type { SqlError } from "effect/unstable/sql/SqlError"
+import type { SqlError } from "effect/sql/SqlError"
 
 const SLOW_MS = 1000
 

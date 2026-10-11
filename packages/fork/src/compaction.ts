@@ -173,7 +173,9 @@ export function formatFacts(value: Facts) {
     value.todos.length
       ? ["## Todo List", ...value.todos.map((todo) => `- [${todo.status}] ${todo.content}`)].join("\n")
       : undefined,
-    value.errors.length ? ["## Recent Tool Errors", ...value.errors.map((error) => `- ${error}`)].join("\n") : undefined,
+    value.errors.length
+      ? ["## Recent Tool Errors", ...value.errors.map((error) => `- ${error}`)].join("\n")
+      : undefined,
   ].filter((section): section is string => section !== undefined)
   return sections.length ? sections.join("\n\n") : undefined
 }

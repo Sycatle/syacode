@@ -55,7 +55,8 @@ function parseField(text: string, min: number, max: number): Field | string {
     if (extra !== undefined) return `invalid "${item}"`
     const size = step === undefined ? 1 : Number(step)
     if (!Number.isInteger(size) || size < 1) return `invalid step in "${item}"`
-    const bounds = range === "*" ? [min, max] : range.split("-").map((bound) => (/^\d+$/.test(bound) ? Number(bound) : NaN))
+    const bounds =
+      range === "*" ? [min, max] : range.split("-").map((bound) => (/^\d+$/.test(bound) ? Number(bound) : NaN))
     if (bounds.length > 2 || bounds.some(Number.isNaN)) return `invalid "${item}"`
     const from = bounds[0]
     const end = bounds[1] ?? (step === undefined ? from : max)

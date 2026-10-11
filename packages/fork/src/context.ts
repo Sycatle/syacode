@@ -41,7 +41,10 @@ export function pruneRequest(items: readonly PruneItem[], user: string) {
     questions: Object.fromEntries(
       items.map((_, index) => [
         `p${index}`,
-        { type: "noul" as const, instructions: `Output [p${index}] will be needed again to finish the current request` },
+        {
+          type: "noul" as const,
+          instructions: `Output [p${index}] will be needed again to finish the current request`,
+        },
       ]),
     ) satisfies Record<string, ForkJev.Question>,
   }

@@ -49,7 +49,10 @@ export function needed(input: { from?: string; to: string; context: number }, mi
 
 export function build(input: Omit<Checkpoint, "request"> & { request: string }): Checkpoint {
   const request = input.request.trim()
-  return { ...input, request: request.length > MAX_REQUEST_CHARS ? `${request.slice(0, MAX_REQUEST_CHARS)}...` : request }
+  return {
+    ...input,
+    request: request.length > MAX_REQUEST_CHARS ? `${request.slice(0, MAX_REQUEST_CHARS)}...` : request,
+  }
 }
 
 // The text a model reads to take the work over. Provider-neutral Markdown.

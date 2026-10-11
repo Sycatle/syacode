@@ -58,7 +58,7 @@
     "./flags": "./src/flags.ts"
   },
   "dependencies": {
-    "@opencode-ai/core": "workspace:*",
+    "@opencode/util": "workspace:*",
     "ai": "catalog:"
   },
   "devDependencies": {

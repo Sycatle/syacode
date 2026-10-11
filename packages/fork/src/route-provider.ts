@@ -42,11 +42,16 @@ export function keepsCache(from: { provider: string; model: string }, to: { prov
 // does not cover borrows its nearest populated one, like the global tiers do, so routing inside it never dead-ends.
 export function restrict(catalog: Catalog, provider: string): Catalog {
   const own = (id: string) => catalog.models[id]?.provider === provider
-  const raw = Object.fromEntries(TIERS.map((tier) => [tier, (catalog.tiers[tier] ?? []).filter(own)])) as Record<Tier, string[]>
+  const raw = Object.fromEntries(TIERS.map((tier) => [tier, (catalog.tiers[tier] ?? []).filter(own)])) as Record<
+    Tier,
+    string[]
+  >
   const tiers = Object.fromEntries(
     TIERS.map((tier, index) => {
       if (raw[tier].length) return [tier, raw[tier]]
-      const below = TIERS.slice(0, index).toReversed().find((t) => raw[t].length)
+      const below = TIERS.slice(0, index)
+        .toReversed()
+        .find((t) => raw[t].length)
       const above = TIERS.slice(index + 1).find((t) => raw[t].length)
       const from = below ?? above
       return [tier, from ? raw[from] : []]

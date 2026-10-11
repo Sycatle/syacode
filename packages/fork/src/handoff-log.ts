@@ -18,7 +18,9 @@ export type Row = {
 export function record(cp: Checkpoint) {
   try {
     table()
-      .query("INSERT INTO fork_handoff (time, session_id, reason, from_model, to_model, context, checkpoint) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .query(
+        "INSERT INTO fork_handoff (time, session_id, reason, from_model, to_model, context, checkpoint) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      )
       .run(cp.time, cp.session_id, cp.reason, cp.from, cp.to ?? null, cp.context, JSON.stringify(cp))
   } catch {}
 }

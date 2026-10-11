@@ -138,7 +138,10 @@ export function decide(input: Input, cfg: Settings = settings()): Decision {
 
   const used = input.context / input.window
   if (used < threshold)
-    return skip("below-threshold", `${pct(used)} of the window, ${cold ? "cold-cache " : ""}threshold ${pct(threshold)}`)
+    return skip(
+      "below-threshold",
+      `${pct(used)} of the window, ${cold ? "cold-cache " : ""}threshold ${pct(threshold)}`,
+    )
 
   const money = pays(input, cold)
   const detail = `${pct(used)} of the window, benefit ${usd(money.benefit)} vs cost ${usd(money.cost)}`

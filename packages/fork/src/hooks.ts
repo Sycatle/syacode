@@ -155,7 +155,9 @@ export function parse(input: unknown): Hooks {
 
 function parseHeaders(input: unknown) {
   if (typeof input !== "object" || input === null || Array.isArray(input)) return undefined
-  const pairs = Object.entries(input).flatMap(([key, value]) => (typeof value === "string" ? [[key, value] as const] : []))
+  const pairs = Object.entries(input).flatMap(([key, value]) =>
+    typeof value === "string" ? [[key, value] as const] : [],
+  )
   return pairs.length ? Object.fromEntries(pairs) : undefined
 }
 
@@ -190,7 +192,12 @@ const DECISIONS: readonly string[] = ["block", "allow", "deny", "ask"]
 
 // Exit 0 continues (stdout may carry a JSON decision), exit 2 blocks with stderr as the reason,
 // any other exit code or a timeout is a non-blocking error.
-export function interpret(result: { code: number | null; stdout: string; stderr: string; timedOut?: boolean }): Outcome {
+export function interpret(result: {
+  code: number | null
+  stdout: string
+  stderr: string
+  timedOut?: boolean
+}): Outcome {
   if (result.timedOut) return { error: "hook timed out" }
   if (result.code === 2) return { decision: "block", reason: result.stderr.trim() || "Blocked by hook" }
   if (result.code !== 0) return { error: result.stderr.trim() || `hook exited with code ${result.code}` }
@@ -261,7 +268,9 @@ export function blocked(outcome: Outcome) {
 // In-band signal from the UserPromptSubmit hook: a text part carrying this metadata key holds the block reason.
 export const PROMPT_BLOCK_KEY = "forkHookPromptBlock"
 
-export function promptBlockReason(parts: readonly { type: string; text?: string; metadata?: Record<string, unknown> }[]) {
+export function promptBlockReason(
+  parts: readonly { type: string; text?: string; metadata?: Record<string, unknown> }[],
+) {
   return parts.find((part) => part.type === "text" && part.metadata?.[PROMPT_BLOCK_KEY] === true)?.text
 }
 
@@ -337,7 +346,10 @@ const CLASSIFY_STATE_CHARS = 3000
 async function runClassify(entry: ClassifyEntry, event: Payload, fetcher?: typeof fetch): Promise<Outcome> {
   if (!process.env.TYPESAFE_API_KEY) return { error: "classify hooks need TYPESAFE_API_KEY" }
   const response = await ForkJev.ask(
-    { state: payload(event).slice(0, CLASSIFY_STATE_CHARS), questions: { match: { type: "noul", instructions: entry.question } } },
+    {
+      state: payload(event).slice(0, CLASSIFY_STATE_CHARS),
+      questions: { match: { type: "noul", instructions: entry.question } },
+    },
     process.env,
     fetcher,
     entry.timeout,

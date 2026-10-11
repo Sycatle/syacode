@@ -80,7 +80,8 @@ async function location(item: Json, options: Options, cache: Map<string, Promise
   const start = ((item.range ?? item.targetSelectionRange ?? item.targetRange) as Json | undefined)?.start as
     | Json
     | undefined
-  if (typeof uri !== "string" || typeof start?.line !== "number" || typeof start.character !== "number") return undefined
+  if (typeof uri !== "string" || typeof start?.line !== "number" || typeof start.character !== "number")
+    return undefined
   const file = toPath(uri)
   const head = `${rel(file, options.root)}:${start.line + 1}:${start.character + 1}`
   if (!options.read) return head
@@ -107,7 +108,8 @@ function tree(item: Json, depth: number): (string | undefined)[] {
 function flat(item: Json, options: Options) {
   const loc = item.location as Json | undefined
   const start = (loc?.range as Json | undefined)?.start as Json | undefined
-  if (typeof item.name !== "string" || typeof loc?.uri !== "string" || typeof start?.line !== "number") return [undefined]
+  if (typeof item.name !== "string" || typeof loc?.uri !== "string" || typeof start?.line !== "number")
+    return [undefined]
   return [`${kind(item.kind)} ${item.name} ${rel(toPath(loc.uri), options.root)}:${start.line + 1}`]
 }
 

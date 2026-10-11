@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite"
 import path from "path"
 import { asSchema, type ModelMessage, type Tool } from "ai"
-import { Global } from "@opencode-ai/core/global"
+import { Path } from "@opencode/util/global"
 
 // Per-request token breakdown. Providers only report aggregate input tokens, so
 // each category is measured in characters on the final request (after plugin
@@ -260,7 +260,7 @@ let handle: Database | undefined
 // Shared with other fork modules that keep their own tables in the same file.
 export function db() {
   if (handle) return handle
-  handle = new Database(process.env.OPENCODE_FORK_DB ?? path.join(Global.Path.data, "fork.db"), { create: true })
+  handle = new Database(process.env.OPENCODE_FORK_DB ?? path.join(Path.data, "fork.db"), { create: true })
   handle.run("PRAGMA journal_mode = WAL")
   // Several processes (TUI, run, workflows) write here: wait for a lock instead of failing, and skip the
   // per-commit fsync that WAL makes unnecessary for journals.

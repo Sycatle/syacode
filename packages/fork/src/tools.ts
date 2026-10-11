@@ -140,7 +140,9 @@ export function dropDanglingToolReferences(body: string) {
   try {
     const parsed: unknown = JSON.parse(body)
     if (!isObject(parsed) || !Array.isArray(parsed.tools) || !Array.isArray(parsed.messages)) return undefined
-    const defined = new Set(parsed.tools.flatMap((item) => (isObject(item) && typeof item.name === "string" ? [item.name] : [])))
+    const defined = new Set(
+      parsed.tools.flatMap((item) => (isObject(item) && typeof item.name === "string" ? [item.name] : [])),
+    )
     let changed = false
     const messages = parsed.messages.map((message: unknown) => {
       if (!isObject(message) || !Array.isArray(message.content)) return message
@@ -178,7 +180,10 @@ export function fillMissingArguments(body: string) {
       if (!isObject(item) || (item.type !== "tool_search_call" && item.type !== "function_call")) return item
       if (typeof item.arguments === "string") return item
       changed = true
-      return { ...item, arguments: item.arguments === undefined || item.arguments === null ? "{}" : JSON.stringify(item.arguments) }
+      return {
+        ...item,
+        arguments: item.arguments === undefined || item.arguments === null ? "{}" : JSON.stringify(item.arguments),
+      }
     })
     return changed ? JSON.stringify({ ...parsed, input }) : undefined
   } catch {

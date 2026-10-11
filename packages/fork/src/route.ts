@@ -85,7 +85,10 @@ export type Mode = { kind: "auto" } | { kind: "tier"; tier: Tier }
 
 // Model ID of the virtual provider: "auto", "fast", "standard", "reasoning", "frontier".
 export function parseMode(modelID: string): Mode | undefined {
-  const id = modelID.trim().toLowerCase().replace(/^auto-/, "")
+  const id = modelID
+    .trim()
+    .toLowerCase()
+    .replace(/^auto-/, "")
   if (id === "auto") return { kind: "auto" }
   const tier = TIERS.find((item) => item === id)
   return tier ? { kind: "tier", tier } : undefined
@@ -168,7 +171,8 @@ export function shouldReclassify(
 export function readSignals(value: unknown): Signals | undefined {
   if (typeof value !== "object" || value === null) return undefined
   const fields = Object.fromEntries(Object.entries(value))
-  const number = (key: string) => (typeof fields[key] === "number" && Number.isFinite(fields[key]) ? fields[key] : undefined)
+  const number = (key: string) =>
+    typeof fields[key] === "number" && Number.isFinite(fields[key]) ? fields[key] : undefined
   const task = TASK_TYPES.find((item) => item === fields.task_type)
   const size = CONTEXT_SIZES.find((item) => item === fields.context_size)
   const complexity = number("complexity")
@@ -188,7 +192,16 @@ export function readSignals(value: unknown): Signals | undefined {
     confidence === undefined
   )
     return undefined
-  return { task_type: task, complexity, reasoning, tool_intensity, latency_sensitivity, ambiguity, context_size: size, confidence }
+  return {
+    task_type: task,
+    complexity,
+    reasoning,
+    tool_intensity,
+    latency_sensitivity,
+    ambiguity,
+    context_size: size,
+    confidence,
+  }
 }
 
 // Variant names by decreasing effort, as models.dev providers spell them.
@@ -325,7 +338,8 @@ export function decide(i: DecideInput, catalog: Catalog, cfg: Config = DEFAULTS)
 
 function autoTier(i: DecideInput, cfg: Config): { tier: Tier; reason: string; score: number | undefined } {
   const session = i.session
-  if (i.continuation && session) return { tier: session.tier, reason: "tool-loop continuation: keep tier", score: undefined }
+  if (i.continuation && session)
+    return { tier: session.tier, reason: "tool-loop continuation: keep tier", score: undefined }
   const signals = i.signals
   if (!signals || signals.confidence < cfg.min_confidence) {
     const why = signals ? "low confidence" : "no signals"
@@ -336,7 +350,8 @@ function autoTier(i: DecideInput, cfg: Config): { tier: Tier; reason: string; sc
   const target = tierOfScore(value, cfg)
   const fixed = value.toFixed(2)
   if (!session) return { tier: target, reason: `new session, score ${fixed}`, score: value }
-  if (target === session.tier) return { tier: session.tier, reason: `score ${fixed} within ${session.tier}`, score: value }
+  if (target === session.tier)
+    return { tier: session.tier, reason: `score ${fixed} within ${session.tier}`, score: value }
   const flapping = session.history.includes(target)
   const margin = flapping ? cfg.switch_threshold : cfg.stickiness
   const dist = distanceFromBand(value, session.tier, cfg)
@@ -456,7 +471,12 @@ export function choose(i: ChooseInput, catalog: Catalog, cfg: Config = DEFAULTS)
     cold: i.cold,
     cached: i.warm?.[target.id],
   })
-  if (cost.pays) return { ...picked, switched, reason: `${decision.reason}; switch pays (${usd(cost.saving)} > ${usd(cost.rewrite)} rewrite)` }
+  if (cost.pays)
+    return {
+      ...picked,
+      switched,
+      reason: `${decision.reason}; switch pays (${usd(cost.saving)} > ${usd(cost.rewrite)} rewrite)`,
+    }
   return {
     ...decision,
     tier: session.tier,
@@ -510,7 +530,8 @@ export function classify(error: { status?: number; message: string; retryAfterMs
   if (error.status === 429 || error.status === 529)
     return { kind: "rate_limited", ms: cap(error.retryAfterMs ?? RATE_LIMIT_COOLDOWN_MS) }
   if (error.status === 400 || error.status === 413 || error.status === 422) return { kind: "bad_request" }
-  if (error.status === 401 || error.status === 403) return { kind: "auth", ms: cap(error.retryAfterMs ?? QUOTA_COOLDOWN_MS) }
+  if (error.status === 401 || error.status === 403)
+    return { kind: "auth", ms: cap(error.retryAfterMs ?? QUOTA_COOLDOWN_MS) }
   return { kind: "transient" }
 }
 
@@ -662,12 +683,18 @@ export function deriveTiers(models: readonly Known[], exclude: readonly string[]
     a.id.localeCompare(b.id)
   // Fifths, so a few points of difference never reorder the list (the session's own model leads anyway).
   const room = (m: Known) => Math.floor((m.headroom ?? 1) * 5)
-  const by = (tier: Tier) => pool.filter((m) => tierOf(m) === tier).toSorted(order).map((m) => m.id)
+  const by = (tier: Tier) =>
+    pool
+      .filter((m) => tierOf(m) === tier)
+      .toSorted(order)
+      .map((m) => m.id)
   const raw = Object.fromEntries(TIERS.map((tier) => [tier, by(tier)])) as Record<Tier, string[]>
   return Object.fromEntries(
     TIERS.map((tier) => {
       if (raw[tier].length) return [tier, raw[tier]]
-      const below = TIERS.slice(0, rank(tier)).toReversed().find((t) => raw[t].length)
+      const below = TIERS.slice(0, rank(tier))
+        .toReversed()
+        .find((t) => raw[t].length)
       const above = TIERS.slice(rank(tier) + 1).find((t) => raw[t].length)
       const from = below ?? above
       return [tier, from ? raw[from] : []]

@@ -4,13 +4,13 @@ import { join } from "node:path"
 import { Database } from "bun:sqlite"
 import { expect, test } from "bun:test"
 import { Effect } from "effect"
-import { SqlClient } from "effect/unstable/sql/SqlClient"
-import { layer } from "../src/database/sqlite.bun"
+import { SqlClient as Sql } from "effect/sql"
+import { sqliteLayer } from "../src/database/sqlite.bun"
 
 // Native busy_timeout is 0 here, so a held write lock fails the statement immediately and only the retry can recover.
 const withLockedDatabase = async <A>(
   release: number | undefined,
-  program: (sql: SqlClient) => Effect.Effect<A, unknown, never>,
+  program: (sql: Sql.SqlClient) => Effect.Effect<A, unknown, never>,
 ) => {
   const dir = await mkdtemp(join(tmpdir(), "opencode-busy-"))
   const filename = join(dir, "busy.db")
@@ -22,8 +22,8 @@ const withLockedDatabase = async <A>(
   try {
     return await Effect.runPromise(
       Effect.gen(function* () {
-        return yield* program(yield* SqlClient)
-      }).pipe(Effect.provide(layer({ filename, disableWAL: true })), Effect.scoped),
+        return yield* program(yield* Sql.SqlClient)
+      }).pipe(Effect.provide(sqliteLayer({ filename, disableWAL: true })), Effect.scoped),
     )
   } finally {
     if (holder.inTransaction) holder.run("rollback")
