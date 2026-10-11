@@ -57,8 +57,9 @@ export const resolve = Effect.fn("ForkRouteTurn.resolve")(function* (input: {
   const models = new Map<string, Provider.Model>(
     connected.flatMap((item) => Object.values(item.models).map((model) => [`${item.id}/${model.id}`, model] as const)),
   )
-  const quota = ForkQuota.fresh("anthropic") ?? ForkQuota.fresh("openai")
-  const catalog = catalogOf(models, quota !== undefined)
+  // One snapshot per subscription: each provider is judged on its own window, not on whichever is fresh first.
+  const quotas = ["anthropic", "openai"].flatMap((id) => ForkQuota.fresh(id) ?? [])
+  const catalog = catalogOf(models, new Map(quotas.map((item) => [item.provider, headroomOf(item)] as const)))
   const now = Date.now()
 
   const done = ForkRouteLog.forMessage(input.session.id, input.user.id)
@@ -74,16 +75,19 @@ export const resolve = Effect.fn("ForkRouteTurn.resolve")(function* (input: {
     : FIXED_CONTEXT
   const tokens = context + Math.ceil(prompt.length / 4)
 
-  // Over the subscription's 5-hour threshold (or rejected): its provider goes last, for new messages only.
-  const window = quota?.five_hour
-  const overQuota =
-    !continuation &&
-    window !== undefined &&
-    window.reset > now &&
-    (window.utilization >= ForkRoute.quotaThreshold(process.env.OPENCODE_FORK_ROUTE_QUOTA) ||
-      quota?.status === "rejected")
-  const quotaProvider = quota?.provider
-  const degraded = new Set([...health.degraded(now), ...turn.excluded, ...(overQuota && quotaProvider ? [quotaProvider] : [])])
+  // Over a subscription's 5-hour threshold (or rejected): its provider goes last, for new messages only.
+  const threshold = ForkRoute.quotaThreshold(process.env.OPENCODE_FORK_ROUTE_QUOTA)
+  const overQuota = continuation
+    ? []
+    : quotas
+        .filter(
+          (item) =>
+            item.five_hour !== undefined &&
+            item.five_hour.reset > now &&
+            (item.five_hour.utilization >= threshold || item.status === "rejected"),
+        )
+        .map((item) => item.provider)
+  const degraded = new Set([...health.degraded(now), ...turn.excluded, ...overQuota])
 
   // A short follow-up keeps the confident signals of the previous message instead of classifying again.
   const latest = ForkRouteLog.decisions(input.session.id, 1)[0]
@@ -206,7 +210,14 @@ function previousVariant(sessionID: string) {
   return row ? { variant: row.variant ?? undefined } : undefined
 }
 
-function catalogOf(models: Map<string, Provider.Model>, subscription: boolean): ForkRoute.Catalog {
+// The scarcer of the two windows: the weekly one can close a provider while the 5-hour one looks empty.
+function headroomOf(quota: ForkQuota.Snapshot) {
+  const used = Math.max(quota.five_hour?.utilization ?? 0, quota.seven_day?.utilization ?? 0)
+  return Math.max(0, 1 - used)
+}
+
+// `subscriptions` maps each provider served through a subscription to the room left in its windows.
+function catalogOf(models: Map<string, Provider.Model>, subscriptions: ReadonlyMap<string, number>): ForkRoute.Catalog {
   const known = [...models].map(([id, model]): ForkRoute.Known => {
     return {
       id,
@@ -222,7 +233,8 @@ function catalogOf(models: Map<string, Provider.Model>, subscription: boolean): 
       },
       reasoning: model.capabilities.reasoning,
       released: model.release_date,
-      subscription: subscription && (model.providerID === "anthropic" || model.providerID === "openai"),
+      subscription: subscriptions.has(model.providerID),
+      headroom: subscriptions.get(model.providerID),
     }
   })
   // `OPENCODE_FORK_ROUTE_TIERS` is JSON ({"fast": ["anthropic/claude-haiku-4-5"], ...}) rather than a config key:

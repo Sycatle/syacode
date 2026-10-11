@@ -475,12 +475,14 @@ function usd(value: number) {
 export type Failure =
   // The request is at fault (400/413/422): no cooldown, other models may still accept it.
   | { kind: "bad_request" }
-  // Network error, 5xx, auth: short exponential cooldown on the model.
+  // Network error, 5xx: short exponential cooldown on the model.
   | { kind: "transient" }
   // 429/529: the model is skipped until the window reopens.
   | { kind: "rate_limited"; ms: number }
   // Quota, credits or usage cap exhausted: the whole provider is skipped.
   | { kind: "quota"; ms: number }
+  // 401/403 without quota text: the credentials are at fault for every model of the provider, so it is skipped too.
+  | { kind: "auth"; ms: number }
 
 export const RATE_LIMIT_COOLDOWN_MS = 60_000
 export const QUOTA_COOLDOWN_MS = 15 * 60_000
@@ -508,6 +510,7 @@ export function classify(error: { status?: number; message: string; retryAfterMs
   if (error.status === 429 || error.status === 529)
     return { kind: "rate_limited", ms: cap(error.retryAfterMs ?? RATE_LIMIT_COOLDOWN_MS) }
   if (error.status === 400 || error.status === 413 || error.status === 422) return { kind: "bad_request" }
+  if (error.status === 401 || error.status === 403) return { kind: "auth", ms: cap(error.retryAfterMs ?? QUOTA_COOLDOWN_MS) }
   return { kind: "transient" }
 }
 
@@ -540,7 +543,7 @@ export function health() {
         this.failure(model.id, TRANSIENT_COOLDOWN_MS, now)
         return model.id
       }
-      const key = failure.kind === "quota" ? model.provider : model.id
+      const key = failure.kind === "quota" || failure.kind === "auth" ? model.provider : model.id
       this.cooldown(key, failure.ms, now)
       return key
     },
@@ -581,6 +584,9 @@ export type Known = Model & {
   released: string
   // Served through a Claude subscription: preferred while its quota window has room.
   subscription: boolean
+  // Share of the subscription's usage windows still free (0..1); 1 when unknown. Between two subscriptions the
+  // one with more room goes first, so work drifts to the provider that is not about to close.
+  headroom?: number
 }
 
 const MONTH_MS = 30 * 24 * 3_600_000
@@ -643,9 +649,12 @@ export function deriveTiers(models: readonly Known[], exclude: readonly string[]
   // Newest first: an older model of the same tier (Opus 4.5 next to Opus 5.5) is cheaper but weaker.
   const order = (a: Known, b: Known) =>
     Number(b.subscription) - Number(a.subscription) ||
+    room(b) - room(a) ||
     (Date.parse(b.released) || 0) - (Date.parse(a.released) || 0) ||
     a.price.output - b.price.output ||
     a.id.localeCompare(b.id)
+  // Fifths, so a few points of difference never reorder the list (the session's own model leads anyway).
+  const room = (m: Known) => Math.floor((m.headroom ?? 1) * 5)
   const by = (tier: Tier) => pool.filter((m) => tierOf(m) === tier).toSorted(order).map((m) => m.id)
   const raw = Object.fromEntries(TIERS.map((tier) => [tier, by(tier)])) as Record<Tier, string[]>
   return Object.fromEntries(

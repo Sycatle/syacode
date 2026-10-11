@@ -199,6 +199,9 @@ test("limits are classified whatever the provider's wording", () => {
   expect(err(402, "payment required")).toEqual({ kind: "quota", ms: 15 * 60_000 })
   expect(err(400, "invalid tool schema").kind).toBe("bad_request")
   expect(err(503, "down").kind).toBe("transient")
+  expect(err(401, "invalid x-api-key")).toEqual({ kind: "auth", ms: 15 * 60_000 })
+  expect(err(403, "forbidden").kind).toBe("auth")
+  expect(err(403, "usage limit reached").kind).toBe("quota")
   expect(err(undefined, "timeout").kind).toBe("transient")
 })
 
@@ -525,4 +528,25 @@ test("the journal keeps the effort variant and escalations, and signals read bac
   expect(ForkRoute.readSignals({ ...feature(), confidence: "high" })).toBeUndefined()
   expect(ForkRoute.readSignals({ ...feature(), task_type: "poetry" })).toBeUndefined()
   expect(ForkRoute.readSignals(null)).toBeUndefined()
+})
+
+test("bad credentials cool down the whole provider, not one model", () => {
+  const health = ForkRoute.health()
+  const key = health.record({ id: "gpt-6-luna", provider: "openai" }, { kind: "auth", ms: 60_000 }, 0)
+  expect(key).toBe("openai")
+  expect(health.degraded(1_000).has("openai")).toBe(true)
+})
+
+test("between two subscriptions the one with more room in its windows goes first", () => {
+  const tiers = ForkRoute.deriveTiers([
+    known("anthropic", "haiku", 5, { subscription: true, headroom: 0.1 }),
+    known("openai", "mini", 2, { subscription: true, headroom: 0.9 }),
+  ])
+  expect(tiers.fast).toEqual(["openai/mini", "anthropic/haiku"])
+  // A few points of difference stay in the same fifth: the cheaper model keeps its place.
+  const close = ForkRoute.deriveTiers([
+    known("anthropic", "haiku", 1, { subscription: true, headroom: 0.62 }),
+    known("openai", "mini", 2, { subscription: true, headroom: 0.7 }),
+  ])
+  expect(close.fast).toEqual(["anthropic/haiku", "openai/mini"])
 })
