@@ -12,6 +12,11 @@ import { writeCost, type Price } from "./route"
 export const COMPACT_AT = 0.5
 export const COLD_AT = 0.3
 export const MIN_TURNS = 3
+// Ratios alone never fire on a 1M window: 30% is 300k tokens, and a cache rewrite of 250k costs more than a summary.
+// Telemetry (Oct 2026): 57% of the spend was on calls above 200k tokens and 3 of 679 evaluations compacted. These
+// token ceilings cap the thresholds above; pays() still decides whether the compaction is worth it.
+export const WARM_MAX_TOKENS = 250_000
+export const COLD_MAX_TOKENS = 100_000
 // Estimated size of a summary (output tokens of the summary turn, and its size in the new prefix).
 export const SUMMARY_TOKENS = 2_000
 // The history cache TTL, minus a margin: the compaction rewrites the history, the prefix stays.
@@ -110,7 +115,8 @@ export type Decision = {
 
 export function decide(input: Input, cfg: Settings = settings()): Decision {
   const cold = input.idleMs > input.ttlMs
-  const threshold = cold ? Math.min(cfg.coldAt, cfg.at) : cfg.at
+  const ceiling = input.window > 0 ? (cold ? COLD_MAX_TOKENS : WARM_MAX_TOKENS) / input.window : 1
+  const threshold = Math.min(cold ? Math.min(cfg.coldAt, cfg.at) : cfg.at, ceiling)
   const base = { cold, context: input.context, window: input.window, threshold, cost: 0, benefit: 0 }
   const skip = (code: Code, reason: string, extra: Partial<Decision> = {}): Decision => ({
     ...base,

@@ -162,3 +162,14 @@ test("the Jev request carries the last exchange and the open todos", () => {
   expect(request.state).toContain("Open todos: 2.")
   expect(request.questions.boundary.type).toBe("noul")
 })
+
+test("on a 1M window the thresholds are capped in tokens, so 250k warm and 100k cold are reachable", () => {
+  const big = { window: 1_000_000, base: 30_000 }
+  const warm = decide({ ...big, context: 260_000 })
+  expect(warm.threshold).toBeCloseTo(0.25)
+  expect(warm.code).not.toBe("below-threshold")
+  expect(decide({ ...big, context: 200_000 }).code).toBe("below-threshold")
+  const cold = decide({ ...big, context: 120_000, phase: "start", idleMs: ForkCompactionTiming.WARM_TTL_MS + 1 })
+  expect(cold.threshold).toBeCloseTo(0.1)
+  expect(cold.code).not.toBe("below-threshold")
+})
