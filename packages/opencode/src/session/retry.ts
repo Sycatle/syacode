@@ -44,7 +44,17 @@ function cap(ms: number) {
   return Math.min(ms, RETRY_MAX_DELAY)
 }
 
+// opencode-claude-auth answers 529 "Claude token refresh is rate-limited; retry shortly." when the refresh endpoint
+// throttles it (67 times in a week). A retry after 2s hits the same throttle, so wait out the burst.
+const TOKEN_REFRESH_LIMITED = "token refresh is rate-limited"
+const TOKEN_REFRESH_MIN_DELAY = 20_000
+
 export function delay(attempt: number, error?: SessionV1.APIError, random = Math.random()) {
+  const wait = baseDelay(attempt, error, random)
+  return error?.data.message.toLowerCase().includes(TOKEN_REFRESH_LIMITED) ? Math.max(wait, TOKEN_REFRESH_MIN_DELAY) : wait
+}
+
+function baseDelay(attempt: number, error?: SessionV1.APIError, random = Math.random()) {
   if (error) {
     const headers = error.data.responseHeaders
     if (headers) {

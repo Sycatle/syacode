@@ -127,7 +127,11 @@ export const ApplyPatchTool = Tool.define(
               newContent = fileUpdate.content
               bom = fileUpdate.bom
             } catch (error) {
-              return yield* Effect.fail(new Error(`apply_patch verification failed: ${error}`))
+              // FORK-SEAM: patch-reread (the model patches from a stale view of the file; 19 failures in a week)
+              const hint = String(error).includes("Failed to find expected lines")
+                ? "\nThe file differs from what the patch expects. Read it again and rebuild the patch from its current contents."
+                : ""
+              return yield* Effect.fail(new Error(`apply_patch verification failed: ${error}${hint}`))
             }
 
             const diff = trimDiff(createTwoFilesPatch(filePath, filePath, oldContent, newContent))

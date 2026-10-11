@@ -458,7 +458,8 @@ const layer = Layer.effect(
               add: [
                 {
                   name: "@opencode-ai/plugin",
-                  version: InstallationLocal ? undefined : InstallationVersion,
+                  // FORK-SEAM: dev-plugin-version (a 0.0.0-<branch>-<date> build is never published to npm)
+                  version: InstallationLocal || InstallationVersion.startsWith("0.0.0-") ? undefined : InstallationVersion,
                 },
               ],
             })

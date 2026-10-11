@@ -300,11 +300,14 @@ export const toModelMessagesEffect = Effect.fnUntraced(function* (
         if (part.type === "tool") {
           // A server tool call (native tool search) cut short by an interrupt never got its result block, and
           // the API rejects a server_tool_use without one. There is nothing to replay, so the call is dropped.
+          // A failed one is dropped too: the SDK discards a non-JSON result, which leaves the same orphan. Another
+          // provider cannot interpret a server tool's blocks at all, so a switch away from Anthropic drops them all.
           if (
             part.metadata?.providerExecuted &&
             (part.state.status === "pending" ||
               part.state.status === "running" ||
-              (part.state.status === "error" && part.state.metadata?.interrupted === true))
+              part.state.status === "error" ||
+              (differentModel && !claude))
           )
             continue
           // FORK-SEAM: claude-tools-history (replayed under Claude Code's names, deterministically)

@@ -942,6 +942,39 @@ describe("session.message-v2.toModelMessage", () => {
     ])
   })
 
+  test("drops a failed server tool call, it would replay as a server_tool_use without a result", async () => {
+    const userID = "m-user"
+    const assistantID = "m-assistant"
+    const input: SessionV1.WithParts[] = [
+      {
+        info: userInfo(userID),
+        parts: [{ ...basePart(userID, "u1"), type: "text", text: "find a tool" }] as SessionV1.Part[],
+      },
+      {
+        info: assistantInfo(assistantID, userID),
+        parts: [
+          {
+            ...basePart(assistantID, "a1"),
+            type: "tool",
+            callID: "srvtoolu_1",
+            tool: "tool_search_tool_bm25",
+            metadata: { providerExecuted: true },
+            state: {
+              status: "error",
+              input: { query: "plan" },
+              error: "search failed",
+              metadata: {},
+              time: { start: 0, end: 1 },
+            },
+          },
+        ] as SessionV1.Part[],
+      },
+    ]
+
+    const result = await MessageV2.toModelMessages(input, model)
+    expect(JSON.stringify(result)).not.toContain("srvtoolu_1")
+  })
+
   test("forwards partial bash output for aborted tool calls", async () => {
     const userID = "m-user"
     const assistantID = "m-assistant"

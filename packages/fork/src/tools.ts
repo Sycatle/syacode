@@ -165,6 +165,27 @@ export function dropDanglingToolReferences(body: string) {
   }
 }
 
+// The Responses API rejects a replayed `tool_search_call` / `function_call` item without `arguments`
+// ("Missing required parameter: 'input[N].arguments'", 14 times on gpt-6-luna). @ai-sdk/openai leaves
+// them out for the hosted tool_search item when the stored input has no `arguments` field.
+export function fillMissingArguments(body: string) {
+  if (!body.includes('"tool_search_call"') && !body.includes('"function_call"')) return undefined
+  try {
+    const parsed: unknown = JSON.parse(body)
+    if (!isObject(parsed) || !Array.isArray(parsed.input)) return undefined
+    let changed = false
+    const input = parsed.input.map((item: unknown) => {
+      if (!isObject(item) || (item.type !== "tool_search_call" && item.type !== "function_call")) return item
+      if (typeof item.arguments === "string") return item
+      changed = true
+      return { ...item, arguments: item.arguments === undefined || item.arguments === null ? "{}" : JSON.stringify(item.arguments) }
+    })
+    return changed ? JSON.stringify({ ...parsed, input }) : undefined
+  } catch {
+    return undefined
+  }
+}
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
 }

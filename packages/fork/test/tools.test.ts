@@ -181,3 +181,20 @@ test("nativeSearchOutput reads back the stored references, an unreadable output 
   ])
   expect(ForkTools.nativeSearchOutput("[Old tool result content cleared]")).toEqual([])
 })
+
+test("a replayed Responses tool call without arguments gets an empty object", () => {
+  const body = JSON.stringify({
+    input: [
+      { type: "message", role: "user", content: [] },
+      { type: "tool_search_call", call_id: "a", execution: "client" },
+      { type: "function_call", call_id: "b", name: "bash", arguments: '{"command":"ls"}' },
+      { type: "function_call", call_id: "c", name: "read" },
+    ],
+  })
+  const fixed = JSON.parse(ForkTools.fillMissingArguments(body)!)
+  expect(fixed.input[1].arguments).toBe("{}")
+  expect(fixed.input[2].arguments).toBe('{"command":"ls"}')
+  expect(fixed.input[3].arguments).toBe("{}")
+  expect(ForkTools.fillMissingArguments(JSON.stringify({ input: [fixed.input[2]] }))).toBeUndefined()
+  expect(ForkTools.fillMissingArguments("not json function_call")).toBeUndefined()
+})

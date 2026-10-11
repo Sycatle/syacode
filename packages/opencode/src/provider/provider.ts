@@ -124,6 +124,8 @@ function timeoutFetch(options: Record<string, any>) {
       opts.body = ForkCache.pinFirstUserMessage(opts.body) ?? opts.body
     // FORK-SEAM: native-tool-search (the server search tool keeps its name through opencode-claude-auth)
     if (typeof opts.body === "string" && opts.body.includes('"tool_search_tool_')) ForkTools.guardServerToolNames()
+    // FORK-SEAM: responses-arguments (a replayed tool call without `arguments` kills an OpenAI session)
+    if (typeof opts.body === "string") opts.body = ForkTools.fillMissingArguments(opts.body) ?? opts.body
 
     const res = await fetchFn(input, {
       ...opts,

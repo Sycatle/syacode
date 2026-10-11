@@ -33,6 +33,18 @@ function wrap(message: unknown): ReturnType<NamedError["toObject"]> {
 }
 
 describe("session.retry.delay", () => {
+  test("waits at least 20 seconds when the Claude token refresh is rate-limited", () => {
+    const error = Schema.decodeUnknownSync(SessionV1.APIError.Schema)(
+      new SessionV1.APIError({
+        message: "Claude token refresh is rate-limited; retry shortly.",
+        isRetryable: true,
+        statusCode: 529,
+      }).toObject(),
+    )
+    expect(SessionRetry.delay(1, error, 0)).toBe(20_000)
+    expect(SessionRetry.delay(1, apiError(), 0)).toBe(2000)
+  })
+
   test("caps delay at 30 seconds when headers missing", () => {
     const error = apiError()
     const delays = Array.from({ length: 10 }, (_, index) => SessionRetry.delay(index + 1, error, 0))
