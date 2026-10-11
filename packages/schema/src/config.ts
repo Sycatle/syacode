@@ -9,13 +9,16 @@ import { ConfigMedia } from "./config/media.js"
 import { ConfigCompaction } from "./config/compaction.js"
 import { ConfigCommand } from "./config/command.js"
 import { ConfigExperimental } from "./config/experimental.js"
+import { ConfigFork } from "./config/fork.js"
 import { ConfigFormatter } from "./config/formatter.js"
+import { ConfigHooks } from "./config/hooks.js"
 import { ConfigLSP } from "./config/lsp.js"
 import { ConfigMCP } from "./config/mcp.js"
 import { ConfigModel } from "./config/model.js"
 import { ConfigPlugin } from "./config/plugin.js"
 import { ConfigProvider } from "./config/provider.js"
 import { ConfigReference } from "./config/reference.js"
+import { ConfigSandbox } from "./config/sandbox.js"
 import { ConfigWebSearch } from "./config/websearch.js"
 import { ConfigToolOutput } from "./config/tool-output.js"
 import { ConfigWatcher } from "./config/watcher.js"
@@ -68,6 +71,21 @@ export class Info extends Schema.Class<Info>("Config.Info")({
   }),
   lsp: ConfigLSP.Info.pipe(optional).annotate({
     description: "Enable built-in language servers or configure server overrides",
+  }),
+  // FORK-SEAM: hooks-config
+  hooks: ConfigHooks.Info.pipe(optional).annotate({
+    description:
+      "Shell commands run on lifecycle events (PreToolUse, PostToolUse, UserPromptSubmit, SessionStart, Stop, PreCompact, PermissionRequest)",
+  }),
+  // FORK-SEAM: sandbox-config
+  sandbox: ConfigSandbox.Info.pipe(optional).annotate({
+    description:
+      "OS sandbox (bubblewrap) for the bash tool: writes limited to the project and /tmp, network off unless allowed",
+  }),
+  // FORK-SEAM: fork-config
+  fork: ConfigFork.Info.pipe(optional).annotate({
+    description:
+      'Fork features by OPENCODE_FORK_* name without the prefix, e.g. { "MESSAGING": false, "BUDGET_USD": 5 }; environment variables win',
   }),
   media: ConfigMedia.Info.pipe(optional).annotate({
     description: "Media processing configuration",

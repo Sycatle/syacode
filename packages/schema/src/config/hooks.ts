@@ -1,7 +1,7 @@
-export * as ConfigHooks from "./hooks"
+export * as ConfigHooks from "./hooks.js"
 
 import { Schema } from "effect"
-import { PositiveInt } from "../schema"
+import { PositiveInt } from "../schema.js"
 
 export class Entry extends Schema.Class<Entry>("ConfigV2.Hooks.Entry")({
   type: Schema.Literals(["command", "http", "prompt", "classify"]).pipe(Schema.optional).annotate({

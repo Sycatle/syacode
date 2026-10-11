@@ -215,6 +215,10 @@ export function normalize(input: unknown): Result {
     websearch: Info.fields.websearch,
     worktree: Info.fields.worktree,
     warming: Info.fields.warming,
+    // FORK-SEAM: hooks-config, sandbox-config, fork-config
+    hooks: Info.fields.hooks,
+    sandbox: Info.fields.sandbox,
+    fork: Info.fields.fork,
   }
   Object.entries(nativeAtomic).forEach(([key, schema]) => {
     if (!own(input, key)) return

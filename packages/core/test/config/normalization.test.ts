@@ -654,3 +654,16 @@ describe("ConfigNormalize", () => {
     expect(result.encoded.share).toBeUndefined()
   })
 })
+
+describe("fork config blocks", () => {
+  test("hooks, sandbox and fork pass through normalization", () => {
+    const info = decoded({
+      hooks: { PreToolUse: [{ matcher: "bash", command: "true" }] },
+      sandbox: { enabled: true, network: { allow: [] } },
+      fork: { MESSAGING: false, BUDGET_USD: 5 },
+    })
+    expect(info.hooks?.PreToolUse?.[0]?.matcher).toBe("bash")
+    expect(info.sandbox?.enabled).toBe(true)
+    expect(info.fork).toEqual({ MESSAGING: false, BUDGET_USD: 5 })
+  })
+})

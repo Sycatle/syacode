@@ -1,4 +1,4 @@
-export * as ConfigFork from "./fork"
+export * as ConfigFork from "./fork.js"
 
 import { Schema } from "effect"
 

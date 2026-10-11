@@ -1,4 +1,4 @@
-export * as ConfigSandbox from "./sandbox"
+export * as ConfigSandbox from "./sandbox.js"
 
 import { Schema } from "effect"
 

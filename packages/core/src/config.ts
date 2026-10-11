@@ -6,6 +6,8 @@ import { isDeepStrictEqual } from "node:util"
 import { applyEdits, modify, type ParseError, parse } from "jsonc-parser"
 import { Context, Effect, FiberMap, Layer, Option, PubSub, Ref, Schema, Semaphore, Stream } from "effect"
 import { Directory, Document, Info, type Patch, type Entry, Event } from "@opencode/schema/config"
+// FORK-SEAM: fork-config
+import { ForkFlags } from "@opencode-fork/core/flags"
 import { Credential } from "./credential.js"
 import { Bus } from "./bus.js"
 import { Watcher } from "./filesystem/watcher.js"
@@ -227,7 +229,7 @@ export const layer = (options?: Options) =>
           Effect.orDie,
           Effect.map((entries) => entries.flat()),
         )
-        return [
+        const entries = [
           ...(yield* loadWellknown().pipe(Effect.orDie)),
           ...globalSupplementary,
           ...explicit,
@@ -235,6 +237,13 @@ export const layer = (options?: Options) =>
           ...projectSupplementary,
           ...content,
         ]
+        // FORK-SEAM: fork-config (the `fork` block fills OPENCODE_FORK_* variables the environment left unset; the
+        // highest-priority entry is applied first so it wins)
+        const unknown = entries
+          .toReversed()
+          .flatMap((entry) => ForkFlags.apply(entry.type === "document" ? entry.info.fork : undefined))
+        if (unknown.length) yield* Effect.logWarning("unknown fork config keys", { keys: unknown.join(", ") })
+        return entries
       })
 
       const initial = yield* ConfigDiscovery.discover(options)

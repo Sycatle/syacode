@@ -2173,6 +2173,147 @@ export type ConfigEntry =
                     initialization?: { [x: string]: JsonValue }
                   }
             }
+        hooks?: {
+          PreToolUse?: Array<{
+            type?: "command" | "http" | "prompt" | "classify" | null
+            matcher?: string | null
+            command?: string | null
+            url?: string | null
+            headers?: { [x: string]: string } | null
+            prompt?: string | null
+            question?: string | null
+            threshold?: number | "Infinity" | "-Infinity" | "NaN" | null
+            reason?: string | null
+            timeout?: number | null
+          }> | null
+          PostToolUse?: Array<{
+            type?: "command" | "http" | "prompt" | "classify" | null
+            matcher?: string | null
+            command?: string | null
+            url?: string | null
+            headers?: { [x: string]: string } | null
+            prompt?: string | null
+            question?: string | null
+            threshold?: number | "Infinity" | "-Infinity" | "NaN" | null
+            reason?: string | null
+            timeout?: number | null
+          }> | null
+          PostToolUseFailure?: Array<{
+            type?: "command" | "http" | "prompt" | "classify" | null
+            matcher?: string | null
+            command?: string | null
+            url?: string | null
+            headers?: { [x: string]: string } | null
+            prompt?: string | null
+            question?: string | null
+            threshold?: number | "Infinity" | "-Infinity" | "NaN" | null
+            reason?: string | null
+            timeout?: number | null
+          }> | null
+          UserPromptSubmit?: Array<{
+            type?: "command" | "http" | "prompt" | "classify" | null
+            matcher?: string | null
+            command?: string | null
+            url?: string | null
+            headers?: { [x: string]: string } | null
+            prompt?: string | null
+            question?: string | null
+            threshold?: number | "Infinity" | "-Infinity" | "NaN" | null
+            reason?: string | null
+            timeout?: number | null
+          }> | null
+          SessionStart?: Array<{
+            type?: "command" | "http" | "prompt" | "classify" | null
+            matcher?: string | null
+            command?: string | null
+            url?: string | null
+            headers?: { [x: string]: string } | null
+            prompt?: string | null
+            question?: string | null
+            threshold?: number | "Infinity" | "-Infinity" | "NaN" | null
+            reason?: string | null
+            timeout?: number | null
+          }> | null
+          SessionEnd?: Array<{
+            type?: "command" | "http" | "prompt" | "classify" | null
+            matcher?: string | null
+            command?: string | null
+            url?: string | null
+            headers?: { [x: string]: string } | null
+            prompt?: string | null
+            question?: string | null
+            threshold?: number | "Infinity" | "-Infinity" | "NaN" | null
+            reason?: string | null
+            timeout?: number | null
+          }> | null
+          Stop?: Array<{
+            type?: "command" | "http" | "prompt" | "classify" | null
+            matcher?: string | null
+            command?: string | null
+            url?: string | null
+            headers?: { [x: string]: string } | null
+            prompt?: string | null
+            question?: string | null
+            threshold?: number | "Infinity" | "-Infinity" | "NaN" | null
+            reason?: string | null
+            timeout?: number | null
+          }> | null
+          SubagentStop?: Array<{
+            type?: "command" | "http" | "prompt" | "classify" | null
+            matcher?: string | null
+            command?: string | null
+            url?: string | null
+            headers?: { [x: string]: string } | null
+            prompt?: string | null
+            question?: string | null
+            threshold?: number | "Infinity" | "-Infinity" | "NaN" | null
+            reason?: string | null
+            timeout?: number | null
+          }> | null
+          PreCompact?: Array<{
+            type?: "command" | "http" | "prompt" | "classify" | null
+            matcher?: string | null
+            command?: string | null
+            url?: string | null
+            headers?: { [x: string]: string } | null
+            prompt?: string | null
+            question?: string | null
+            threshold?: number | "Infinity" | "-Infinity" | "NaN" | null
+            reason?: string | null
+            timeout?: number | null
+          }> | null
+          PermissionRequest?: Array<{
+            type?: "command" | "http" | "prompt" | "classify" | null
+            matcher?: string | null
+            command?: string | null
+            url?: string | null
+            headers?: { [x: string]: string } | null
+            prompt?: string | null
+            question?: string | null
+            threshold?: number | "Infinity" | "-Infinity" | "NaN" | null
+            reason?: string | null
+            timeout?: number | null
+          }> | null
+          Notification?: Array<{
+            type?: "command" | "http" | "prompt" | "classify" | null
+            matcher?: string | null
+            command?: string | null
+            url?: string | null
+            headers?: { [x: string]: string } | null
+            prompt?: string | null
+            question?: string | null
+            threshold?: number | "Infinity" | "-Infinity" | "NaN" | null
+            reason?: string | null
+            timeout?: number | null
+          }> | null
+        }
+        sandbox?: {
+          enabled: boolean
+          network?: { allow: Array<string> } | null
+          write?: Array<string> | null
+          read_deny?: Array<string> | null
+        }
+        fork?: { [x: string]: boolean | number | string }
         media?: {
           image?: { auto_resize?: boolean; max_width?: number; max_height?: number; max_base64_bytes?: number }
         }
