@@ -33,6 +33,7 @@ import {
   type JSX,
   lazy,
   onCleanup,
+  onMount,
   type ParentProps,
   Show,
 } from "solid-js"
@@ -240,6 +241,31 @@ function UiI18nBridge(props: ParentProps) {
       {props.children}
     </I18nProvider>
   )
+}
+
+// Opens the session named by a push notification, whether the app was already running or was launched by it.
+function PushNavigation() {
+  const navigate = useNavigate()
+  const server = useServer()
+
+  const open = (sessionID: string) => {
+    const current = server.current
+    if (current) navigate(sessionHref(ServerConnection.key(current), sessionID))
+  }
+
+  onMount(() => {
+    const sessionID = new URLSearchParams(location.search).get("session")
+    if (sessionID) open(sessionID)
+    if (!("serviceWorker" in navigator)) return
+    const listener = (event: MessageEvent) => {
+      if (event.data?.type !== "notification-click" || typeof event.data.sessionID !== "string") return
+      open(event.data.sessionID)
+    }
+    navigator.serviceWorker.addEventListener("message", listener)
+    onCleanup(() => navigator.serviceWorker.removeEventListener("message", listener))
+  })
+
+  return null
 }
 
 function LayoutCompatibility(props: ParentProps) {
@@ -593,6 +619,7 @@ export function AppInterface(props: {
                     <PermissionProvider>
                       <NotificationProvider>
                         <ServerShell>
+                          <PushNavigation />
                           <Show when={useSettings().general.newLayoutDesigns()} fallback={routerProps.children}>
                             <NewAppLayout serverScoped={props.serverScoped}>{routerProps.children}</NewAppLayout>
                           </Show>

@@ -1046,6 +1046,13 @@ export const dict = {
     "Show system notification when the agent is complete or needs attention",
   "settings.general.notifications.permissions.title": "Permissions",
   "settings.general.notifications.permissions.description": "Show system notification when a permission is required",
+  "settings.notifications.push.title": "Push notifications",
+  "settings.notifications.push.description":
+    "Get notified on this device when a session finishes, fails, or needs your answer, even with the screen locked",
+  "settings.notifications.push.install":
+    "On iPhone and iPad, add this app to the Home Screen from the Share menu, then open it from there to enable push notifications",
+  "settings.notifications.push.denied": "Notifications are blocked for this site",
+  "settings.notifications.push.failed": "Could not update push notifications",
   "settings.general.notifications.errors.title": "Errors",
   "settings.general.notifications.errors.description": "Show system notification when an error occurs",
 
