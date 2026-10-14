@@ -194,4 +194,5 @@ export const dict: Record<string, string> = {
   "ui.question.multiHint": "Vel øll svar, sum eru galdandi",
   "ui.question.singleHint": "Vel eitt svar",
   "ui.question.custom.placeholder": "Skriva títt svar...",
+  "ui.tool.image.alt": "Tool result image",
 }

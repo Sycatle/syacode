@@ -213,4 +213,5 @@ export const dict = {
   "ui.promptInput.stop": "Stop",
 
   "ui.tabs.close": "Luk fane",
+  "ui.tool.image.alt": "Tool result image",
 }

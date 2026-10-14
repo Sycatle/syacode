@@ -198,4 +198,5 @@ export const dict: Record<string, string> = {
   "ui.question.multiHint": "Selectează toate răspunsurile corecte",
   "ui.question.singleHint": "Selectează un răspuns",
   "ui.question.custom.placeholder": "Scrie răspunsul...",
+  "ui.tool.image.alt": "Tool result image",
 }

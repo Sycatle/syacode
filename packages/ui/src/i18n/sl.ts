@@ -203,4 +203,5 @@ export const dict: Record<string, string> = {
   "ui.question.multiHint": "Izberite vse ustrezne odgovore",
   "ui.question.singleHint": "Izberite en odgovor",
   "ui.question.custom.placeholder": "Vnesite odgovor ...",
+  "ui.tool.image.alt": "Tool result image",
 }

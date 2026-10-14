@@ -196,4 +196,5 @@ export const dict: Record<string, string> = {
   "ui.question.multiHint": "Válassza ki az összes megfelelő választ",
   "ui.question.singleHint": "Válasszon ki egy választ",
   "ui.question.custom.placeholder": "Írja be a választ...",
+  "ui.tool.image.alt": "Tool result image",
 }

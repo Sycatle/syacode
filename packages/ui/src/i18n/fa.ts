@@ -194,4 +194,5 @@ export const dict: Record<string, string> = {
   "ui.question.multiHint": "همه پاسخ هایی که اعمال می شوند را انتخاب کنید",
   "ui.question.singleHint": "یک پاسخ را انتخاب کنید",
   "ui.question.custom.placeholder": "پاسخ خود را تایپ کنید...",
+  "ui.tool.image.alt": "Tool result image",
 }

@@ -1196,4 +1196,21 @@ export const dict = {
   "help.tabs.persistence": "Wenn Sie die App erneut öffnen, sind Ihre Tabs weiterhin geöffnet.",
   "help.tabs.worktrees":
     "Das neue Design unterstützt Git-Worktrees noch nicht. Diese Funktion folgt in Kürze. Wenn Sie das bisherige Layout vorerst weiterverwenden möchten, können Sie in den Einstellungen zwischen den Layouts wechseln. Beachten Sie jedoch, dass das neue Layout in einigen Wochen dauerhaft verwendet wird.",
+  "session.interrupted.notice": "A tool was interrupted before it finished.",
+  "session.interrupted.action": "Resume",
+  "session.interrupted.prompt": "Continue where you left off.",
+  "session.connection.reconnecting": "Reconnecting to server…",
+  "mcp.remoteAuth.title": "Sign in to {{name}}",
+  "mcp.remoteAuth.step1": "1. Open the authorization page and approve access.",
+  "mcp.remoteAuth.open": "Open authorization page",
+  "mcp.remoteAuth.step2":
+    "2. The browser then fails to open a 127.0.0.1 page. Copy that page's full address and paste it here.",
+  "mcp.remoteAuth.field": "Address from the browser",
+  "settings.notifications.push.title": "Push notifications",
+  "settings.notifications.push.description":
+    "Get notified on this device when a session finishes, fails, or needs your answer, even with the screen locked",
+  "settings.notifications.push.install":
+    "On iPhone and iPad, add this app to the Home Screen from the Share menu, then open it from there to enable push notifications",
+  "settings.notifications.push.denied": "Notifications are blocked for this site",
+  "settings.notifications.push.failed": "Could not update push notifications",
 } satisfies Partial<Record<Keys, string>>

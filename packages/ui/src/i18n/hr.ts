@@ -199,4 +199,5 @@ export const dict: Record<string, string> = {
   "ui.question.multiHint": "Odaberite sve primjenjive odgovore",
   "ui.question.singleHint": "Odaberite jedan odgovor",
   "ui.question.custom.placeholder": "Upišite svoj odgovor...",
+  "ui.tool.image.alt": "Tool result image",
 }

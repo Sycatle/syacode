@@ -220,4 +220,5 @@ export const dict = {
   "ui.toolErrorCard.copyError": "Copier l'erreur",
   "ui.message.duration.seconds": "{{count}} s",
   "ui.message.duration.minutesSeconds": "{{minutes}} min {{seconds}} s",
+  "ui.tool.image.alt": "Image produite par l'outil",
 }

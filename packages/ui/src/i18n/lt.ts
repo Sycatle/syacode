@@ -202,4 +202,5 @@ export const dict: Record<string, string> = {
   "ui.question.multiHint": "Pasirinkite visus tinkamus atsakymus",
   "ui.question.singleHint": "Pasirinkite vieną atsakymą",
   "ui.question.custom.placeholder": "Įveskite savo atsakymą...",
+  "ui.tool.image.alt": "Tool result image",
 }

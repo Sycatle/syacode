@@ -1210,4 +1210,21 @@ export const dict = {
 
   "titlebar.update": "Mettre à jour",
   "titlebar.updateVersion": "Mettre à jour {{version}}",
+  "session.interrupted.notice": "Un outil a été interrompu avant d'avoir terminé.",
+  "session.interrupted.action": "Reprendre",
+  "session.interrupted.prompt": "Continuez là où vous vous étiez arrêté.",
+  "session.connection.reconnecting": "Reconnexion au serveur…",
+  "mcp.remoteAuth.title": "Se connecter à {{name}}",
+  "mcp.remoteAuth.step1": "1. Ouvrez la page d'autorisation et acceptez l'accès.",
+  "mcp.remoteAuth.open": "Ouvrir la page d'autorisation",
+  "mcp.remoteAuth.step2":
+    "2. Le navigateur n'arrive ensuite pas à ouvrir une page 127.0.0.1. Copiez l'adresse complète de cette page et collez-la ici.",
+  "mcp.remoteAuth.field": "Adresse affichée par le navigateur",
+  "settings.notifications.push.title": "Notifications push",
+  "settings.notifications.push.description":
+    "Recevez une notification sur cet appareil quand une session se termine, échoue ou attend votre réponse, même écran verrouillé",
+  "settings.notifications.push.install":
+    "Sur iPhone et iPad, ajoutez cette app à l'écran d'accueil depuis le menu Partager, puis ouvrez-la depuis là pour activer les notifications push",
+  "settings.notifications.push.denied": "Les notifications sont bloquées pour ce site",
+  "settings.notifications.push.failed": "Impossible de mettre à jour les notifications push",
 }

@@ -1178,4 +1178,21 @@ export const dict = {
 
   "desktop.picker.error.notSelected": "선택기에서 파일을 선택하지 않았습니다",
   "desktop.picker.error.sizeLimit": "선택한 첨부 파일이 {{limit}} MB 제한을 초과합니다",
+  "session.interrupted.notice": "A tool was interrupted before it finished.",
+  "session.interrupted.action": "Resume",
+  "session.interrupted.prompt": "Continue where you left off.",
+  "session.connection.reconnecting": "Reconnecting to server…",
+  "mcp.remoteAuth.title": "Sign in to {{name}}",
+  "mcp.remoteAuth.step1": "1. Open the authorization page and approve access.",
+  "mcp.remoteAuth.open": "Open authorization page",
+  "mcp.remoteAuth.step2":
+    "2. The browser then fails to open a 127.0.0.1 page. Copy that page's full address and paste it here.",
+  "mcp.remoteAuth.field": "Address from the browser",
+  "settings.notifications.push.title": "Push notifications",
+  "settings.notifications.push.description":
+    "Get notified on this device when a session finishes, fails, or needs your answer, even with the screen locked",
+  "settings.notifications.push.install":
+    "On iPhone and iPad, add this app to the Home Screen from the Share menu, then open it from there to enable push notifications",
+  "settings.notifications.push.denied": "Notifications are blocked for this site",
+  "settings.notifications.push.failed": "Could not update push notifications",
 }

@@ -198,4 +198,5 @@ export const dict: Record<string, string> = {
   "ui.question.multiHint": "Izvēlies visas atbilstošās atbildes",
   "ui.question.singleHint": "Izvēlies vienu atbildi",
   "ui.question.custom.placeholder": "Ieraksti savu atbildi...",
+  "ui.tool.image.alt": "Tool result image",
 }

@@ -194,4 +194,5 @@ export const dict: Record<string, string> = {
   "ui.promptInput.send": "Lähetä",
   "ui.promptInput.stop": "Pysäytä",
   "ui.tabs.close": "Sulje välilehti",
+  "ui.tool.image.alt": "Tool result image",
 }

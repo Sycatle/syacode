@@ -216,4 +216,5 @@ export const dict: Record<string, string> = {
   "ui.question.multiHint": "Pilih semua jawaban yang sesuai",
   "ui.question.singleHint": "Pilih satu jawaban",
   "ui.question.custom.placeholder": "Ketik jawaban Anda...",
+  "ui.tool.image.alt": "Tool result image",
 }

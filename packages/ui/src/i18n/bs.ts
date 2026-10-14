@@ -222,4 +222,5 @@ export const dict = {
   "ui.toolErrorCard.copyError": "Kopiraj grešku",
   "ui.message.duration.seconds": "{{count}}s",
   "ui.message.duration.minutesSeconds": "{{minutes}}m {{seconds}}s",
+  "ui.tool.image.alt": "Tool result image",
 } satisfies Partial<Record<Keys, string>>

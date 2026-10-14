@@ -221,4 +221,5 @@ export const dict = {
   "ui.toolErrorCard.copyError": "Скопировать ошибку",
   "ui.message.duration.seconds": "{{count}} с",
   "ui.message.duration.minutesSeconds": "{{minutes}} мин {{seconds}} с",
+  "ui.tool.image.alt": "Tool result image",
 }

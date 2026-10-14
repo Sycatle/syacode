@@ -218,4 +218,5 @@ export const dict = {
   "ui.promptInput.send": "Senden",
   "ui.promptInput.stop": "Stoppen",
   "ui.tabs.close": "Tab schließen",
+  "ui.tool.image.alt": "Tool result image",
 } satisfies Partial<Record<Keys, string>>

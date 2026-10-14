@@ -194,4 +194,5 @@ export const dict: Record<string, string> = {
   "ui.question.multiHint": "Ընտրեք բոլոր համապատասխան պատասխանները",
   "ui.question.singleHint": "Ընտրեք մեկ պատասխան",
   "ui.question.custom.placeholder": "Մուտքագրեք ձեր պատասխանը...",
+  "ui.tool.image.alt": "Tool result image",
 }
