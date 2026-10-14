@@ -4,6 +4,7 @@ import { useSettings } from "@/context/settings"
 import { SessionPermissionDock } from "@/pages/session/composer/session-permission-dock"
 import { SessionQuestionDock } from "@/pages/session/composer/session-question-dock"
 import { SessionFollowupDock } from "@/pages/session/composer/session-followup-dock"
+import { SessionInterruptedNotice } from "@/pages/session/composer/session-interrupted-notice"
 import { SessionRevertDock } from "@/pages/session/composer/session-revert-dock"
 import { SessionTodoDock } from "@/pages/session/composer/session-todo-dock"
 import type { SessionComposerRegionController } from "./session-composer-region-controller"
@@ -107,6 +108,9 @@ export function SessionComposerRegion(props: {
               </>
             }
           >
+            <Show when={controller.sessionID()}>
+              {(id) => <SessionInterruptedNotice sessionID={id()} />}
+            </Show>
             <Show when={rolled()} keyed>
               {(revert) => (
                 <div

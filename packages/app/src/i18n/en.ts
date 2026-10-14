@@ -260,6 +260,9 @@ export const dict = {
   "prompt.mode.shell.exit": "esc to exit",
   "session.child.promptDisabled": "Subagent sessions cannot be prompted.",
   "session.child.backToParent": "Back to main session.",
+  "session.interrupted.notice": "A tool was interrupted before it finished.",
+  "session.interrupted.action": "Resume",
+  "session.interrupted.prompt": "Continue where you left off.",
   "session.connection.reconnecting": "Reconnecting to server…",
 
   "prompt.example.1": "Fix a TODO in the codebase",
