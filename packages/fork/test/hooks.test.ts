@@ -3,6 +3,14 @@ import os from "os"
 import path from "path"
 import { ForkHooks } from "../src/hooks"
 
+test("portable rewrites another machine's ~/.claude path to this home", () => {
+  expect(ForkHooks.portable("/home/pc/.claude/hooks/a.sh --fix", "/home/dev")).toBe("/home/dev/.claude/hooks/a.sh --fix")
+  expect(ForkHooks.portable("echo x | /Users/me/.claude/hooks/b.sh", "/home/dev")).toBe(
+    "echo x | /home/dev/.claude/hooks/b.sh",
+  )
+  expect(ForkHooks.portable("/opt/tool/.claude/x /srv/.claude/y", "/home/dev")).toBe("/opt/tool/.claude/x /srv/.claude/y")
+})
+
 afterEach(() => {
   delete process.env.OPENCODE_FORK_HOOKS
 })

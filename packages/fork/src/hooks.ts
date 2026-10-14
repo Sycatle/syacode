@@ -1,3 +1,4 @@
+import os from "os"
 import { ForkFlags } from "./flags"
 import { ForkJev } from "./jev"
 
@@ -272,9 +273,15 @@ export async function run(entry: Entry, event: Payload, deps?: Deps): Promise<Ou
   return runCommand(entry, event)
 }
 
+// Hooks copied from another machine name its home directory (`/home/pc/.claude/hooks/x.sh`); the same
+// files live under this machine's `~/.claude`, so only that well-known prefix is rewritten.
+export function portable(command: string, home = os.homedir()) {
+  return command.replace(/(?<![\w.-])(?:\/home\/[^/\s'"]+|\/Users\/[^/\s'"]+)\/\.claude\//g, `${home}/.claude/`)
+}
+
 async function runCommand(entry: CommandEntry, event: Payload): Promise<Outcome> {
   const timeout = entry.timeout ?? DEFAULT_TIMEOUT
-  const proc = Bun.spawn(["sh", "-c", entry.command], {
+  const proc = Bun.spawn(["sh", "-c", portable(entry.command)], {
     cwd: event.cwd,
     stdin: new Blob([payload(event)]),
     stdout: "pipe",
