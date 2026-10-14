@@ -10,12 +10,18 @@ self.addEventListener("push", (event) => {
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
       // The open tab already shows its own in-app notification.
       if (windows.some((client) => client.visibilityState === "visible")) return
-      return self.registration.showNotification(payload.title, {
-        body: payload.body,
-        tag: payload.tag,
-        data: { sessionID: payload.sessionID },
-        icon: "/favicon-96x96-v3.png",
-      })
+      return (
+        self.registration
+          .showNotification(payload.title, {
+            body: payload.body,
+            tag: payload.tag,
+            data: { sessionID: payload.sessionID },
+            icon: "/favicon-96x96-v3.png",
+          })
+          .then(() => self.registration.getNotifications())
+          // The app resets this to the live count once it is opened.
+          .then((shown) => self.navigator.setAppBadge?.(shown.length))
+      )
     }),
   )
 })

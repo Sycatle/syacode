@@ -10,6 +10,7 @@ import { useServerSync } from "@/context/server-sync"
 import { tabKey, useTabs } from "@/context/tabs"
 import { MobileSessionSheet } from "@/pages/layout/mobile-session-sheet"
 import { SessionPosition } from "@/pages/session/mobile-swipe"
+import { sessionActivity } from "@/pages/session/mobile-tabs"
 import { setV2Toast, ToastRegion } from "@/utils/toast"
 
 export default function NewLayout(props: ParentProps) {
@@ -21,6 +22,20 @@ export default function NewLayout(props: ParentProps) {
   const [state, setState] = createStore({ debugTools: true })
 
   createEffect(() => setV2Toast(true))
+
+  // Home-screen badge: sessions waiting on an answer. Browsers without the Badging API, or without notification
+  // permission, reject or lack it, and the badge is only a courtesy.
+  createEffect(() => {
+    if (!("setAppBadge" in navigator)) return
+    const data = serverSync().session.data
+    const waiting = sessionActivity({
+      status: {},
+      permission: data.permission,
+      question: data.question,
+      isChild: () => false,
+    }).waiting
+    void (waiting > 0 ? navigator.setAppBadge(waiting) : navigator.clearAppBadge()).catch(() => {})
+  })
 
   const update: TitlebarUpdate = {
     version: () => {

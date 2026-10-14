@@ -38,8 +38,12 @@ export function MobileTabBar(props: {
     >
       <TabButton
         icon="bullet-list"
-        label={language.t("session.mobile.sessions")}
-        ariaLabel={active() > 0 ? language.t("session.mobile.sessions.badge", { count: active() }) : undefined}
+        label={language.t("session.mobile.list")}
+        ariaLabel={
+          active() > 0
+            ? language.t("session.mobile.sessions.badge", { count: active() })
+            : language.t("session.mobile.sessions")
+        }
         badge={active()}
         warning={props.activity().waiting > 0}
         onClick={props.onSessions}
@@ -88,7 +92,7 @@ function TabButton(props: {
       aria-label={props.ariaLabel}
       aria-current={props.selected ? "page" : undefined}
       data-selected={props.selected ? "" : undefined}
-      class="relative flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-text-weak"
+      class="relative flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-text-base"
       onClick={props.onClick}
     >
       <span class="relative">

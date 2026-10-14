@@ -1239,4 +1239,6 @@ export const dict = {
   "session.quota.remaining.hours": "{{hours}} h {{minutes}}",
   "session.quota.remaining.days": "{{days}} j {{hours}} h",
   "session.quota.pace": "│ = rythme régulier",
+  "terminal.keys": "Touches du terminal",
+  "session.mobile.list": "Liste",
 }
