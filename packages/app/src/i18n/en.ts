@@ -332,6 +332,12 @@ export const dict = {
   "mcp.status.failed": "failed",
   "mcp.status.needs_auth": "needs auth",
   "mcp.status.disabled": "disabled",
+  "mcp.remoteAuth.title": "Sign in to {{name}}",
+  "mcp.remoteAuth.step1": "1. Open the authorization page and approve access.",
+  "mcp.remoteAuth.open": "Open authorization page",
+  "mcp.remoteAuth.step2":
+    "2. The browser then fails to open a 127.0.0.1 page. Copy that page's full address and paste it here.",
+  "mcp.remoteAuth.field": "Address from the browser",
   "mcp.auth.clickToAuthenticate": "Click to authenticate",
 
   "dialog.fork.empty": "No messages to fork from",

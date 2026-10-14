@@ -43,6 +43,7 @@ import { NormalizedProviderListResponse } from "@opencode-ai/session-ui/context"
 import { createRefCountMap } from "@/utils/refcount"
 import { useGlobal } from "./global"
 import { ServerConnection, useServer } from "./server"
+import { requestMcpRemoteAuth } from "@/utils/mcp-remote-auth"
 import { retry } from "@opencode-ai/core/util/retry"
 import type { ServerScope } from "@/utils/server-scope"
 import { createHomeSessionIndexCache } from "./global-sync/home-session-index"
@@ -712,7 +713,20 @@ export function createServerSyncContextInner(serverSDK: ServerSDK) {
             await serverSDK.api.mcp.disconnect({ server: name, location: { directory: key } })
           },
           authenticate: async () => {
-            await sdk.mcp.auth.authenticate({ name })
+            // The loopback callback only works when the browser runs on the server's machine. Otherwise the
+            // user approves access elsewhere and pastes the address the browser ends up on.
+            if (ServerConnection.local(serverSDK.server)) {
+              await sdk.mcp.auth.authenticate({ name })
+              return
+            }
+            const started = (await sdk.mcp.auth.start({ name })).data
+            if (!started?.authorizationUrl) throw new Error(`MCP server ${name} did not provide an authorization URL`)
+            await requestMcpRemoteAuth({
+              name,
+              authorizationUrl: started.authorizationUrl,
+              oauthState: started.oauthState,
+              complete: (code) => sdk.mcp.auth.callback({ name, code }),
+            })
           },
           refresh: async () => {
             await queryClient.refetchQueries(queryOptionsApi.mcp(key))

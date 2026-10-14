@@ -63,6 +63,7 @@ import LegacyLayout from "@/pages/layout"
 import NewLayout from "@/pages/layout-new"
 import { ErrorPage } from "./pages/error"
 import { useCheckServerHealth } from "./utils/server-health"
+import { McpRemoteAuthHost } from "./components/mcp-remote-auth"
 import { legacySessionHref, legacySessionServer, requireServerKey, sessionHref } from "./utils/session-route"
 import { createSessionLineage } from "@/pages/session/session-lineage"
 
@@ -620,6 +621,7 @@ export function AppInterface(props: {
                       <NotificationProvider>
                         <ServerShell>
                           <PushNavigation />
+                          <McpRemoteAuthHost />
                           <Show when={useSettings().general.newLayoutDesigns()} fallback={routerProps.children}>
                             <NewAppLayout serverScoped={props.serverScoped}>{routerProps.children}</NewAppLayout>
                           </Show>
