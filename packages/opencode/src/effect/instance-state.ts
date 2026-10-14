@@ -1,4 +1,4 @@
-import { Effect, ScopedCache, Scope } from "effect"
+import { Cause, Duration, Effect, Exit, ScopedCache, Scope } from "effect"
 import type { InstanceContext } from "@/project/instance-context"
 import { InstanceRef, WorkspaceRef } from "./instance-ref"
 import { registerDisposer } from "./instance-registry"
@@ -27,8 +27,12 @@ export const make = <A, E = never, R = never>(
   init: (ctx: InstanceContext) => Effect.Effect<A, E, R | Scope.Scope>,
 ): Effect.Effect<InstanceState<A, E, Exclude<R, Scope.Scope>>, never, R | Scope.Scope> =>
   Effect.gen(function* () {
-    const cache = yield* ScopedCache.make<string, A, E, R>({
+    const cache = yield* ScopedCache.makeWith<string, A, E, R>({
       capacity: Number.POSITIVE_INFINITY,
+      // The first caller runs the lookup itself, so a client that disconnects mid-lookup stores an interrupt in
+      // the entry. Never keep that: every later request for the directory would be interrupted too (HTTP 499).
+      timeToLive: (exit) =>
+        Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause) ? Duration.zero : Duration.infinity,
       lookup: () =>
         Effect.gen(function* () {
           return yield* init(yield* context)
