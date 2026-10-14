@@ -21,6 +21,9 @@ export const ServeCommand = effectCmd({
     const { AppRuntime } = yield* Effect.promise(() => import("../../effect/app-runtime"))
     const { SessionStaleTools } = yield* Effect.promise(() => import("../../session/stale-tools"))
     yield* Effect.promise(() => AppRuntime.runPromise(SessionStaleTools.settle))
+    // Only the process that owns the subscriptions pushes; an embedded server in a TUI must not duplicate it.
+    const { Push } = yield* Effect.promise(() => import("../../push/push"))
+    Push.start()
     if (!Flag.OPENCODE_SERVER_PASSWORD) {
       console.log("Warning: OPENCODE_SERVER_PASSWORD is not set; server is unsecured.")
     }

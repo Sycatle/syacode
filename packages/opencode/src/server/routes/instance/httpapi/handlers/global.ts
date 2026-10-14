@@ -11,7 +11,8 @@ import { HttpServerResponse } from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import * as Sse from "effect/unstable/encoding/Sse"
 import { RootHttpApi } from "../api"
-import { GlobalUpgradeInput } from "../groups/global"
+import { GlobalUpgradeInput, PushSubscriptionInput } from "../groups/global"
+import { Push } from "@/push/push"
 
 function eventData(data: unknown): Sse.Event {
   return {
@@ -115,6 +116,24 @@ export const globalHandlers = HttpApiBuilder.group(RootHttpApi, "global", (handl
       return HttpServerResponse.jsonUnsafe(result)
     })
 
+    const pushKey = Effect.fn("GlobalHttpApi.pushKey")(function* () {
+      return { publicKey: yield* Effect.promise(() => Push.publicKey()) }
+    })
+
+    const pushSubscribe = Effect.fn("GlobalHttpApi.pushSubscribe")(function* (ctx: {
+      payload: typeof PushSubscriptionInput.Type
+    }) {
+      yield* Effect.promise(() => Push.subscribe(ctx.payload))
+      return true
+    })
+
+    const pushUnsubscribe = Effect.fn("GlobalHttpApi.pushUnsubscribe")(function* (ctx: {
+      payload: { endpoint: string }
+    }) {
+      yield* Effect.promise(() => Push.unsubscribe(ctx.payload.endpoint))
+      return true
+    })
+
     return handlers
       .handle("health", health)
       .handleRaw("event", event)
@@ -122,5 +141,8 @@ export const globalHandlers = HttpApiBuilder.group(RootHttpApi, "global", (handl
       .handle("configUpdate", configUpdate)
       .handle("dispose", dispose)
       .handle("upgrade", upgrade)
+      .handle("pushKey", pushKey)
+      .handle("pushSubscribe", pushSubscribe)
+      .handle("pushUnsubscribe", pushUnsubscribe)
   }),
 )

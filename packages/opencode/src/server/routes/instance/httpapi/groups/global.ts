@@ -71,7 +71,14 @@ export const GlobalPaths = {
   config: "/global/config",
   dispose: "/global/dispose",
   upgrade: "/global/upgrade",
+  pushKey: "/global/push/key",
+  pushSubscription: "/global/push/subscription",
 } as const
+
+export const PushSubscriptionInput = Schema.Struct({
+  endpoint: Schema.String,
+  keys: Schema.Struct({ p256dh: Schema.String, auth: Schema.String }),
+})
 
 export const GlobalApi = HttpApi.make("global").add(
   HttpApiGroup.make("global")
@@ -132,6 +139,36 @@ export const GlobalApi = HttpApi.make("global").add(
           identifier: "global.upgrade",
           summary: "Upgrade opencode",
           description: "Upgrade opencode to the specified version.",
+        }),
+      ),
+      HttpApiEndpoint.get("pushKey", GlobalPaths.pushKey, {
+        success: described(Schema.Struct({ publicKey: Schema.String }), "Web Push public key"),
+      }).annotateMerge(
+        OpenApi.annotations({
+          identifier: "global.push.key",
+          summary: "Get Web Push public key",
+          description: "Return the VAPID public key a browser needs to subscribe to Web Push notifications.",
+        }),
+      ),
+      HttpApiEndpoint.put("pushSubscribe", GlobalPaths.pushSubscription, {
+        payload: PushSubscriptionInput,
+        success: described(Schema.Boolean, "Subscription stored"),
+      }).annotateMerge(
+        OpenApi.annotations({
+          identifier: "global.push.subscribe",
+          summary: "Register a Web Push subscription",
+          description:
+            "Store a browser push subscription. The server notifies it when a session finishes, fails, or waits for a permission or question.",
+        }),
+      ),
+      HttpApiEndpoint.delete("pushUnsubscribe", GlobalPaths.pushSubscription, {
+        payload: Schema.Struct({ endpoint: Schema.String }),
+        success: described(Schema.Boolean, "Subscription removed"),
+      }).annotateMerge(
+        OpenApi.annotations({
+          identifier: "global.push.unsubscribe",
+          summary: "Remove a Web Push subscription",
+          description: "Stop sending notifications to the given push endpoint.",
         }),
       ),
     )
