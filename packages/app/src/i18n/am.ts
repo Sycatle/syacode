@@ -1158,4 +1158,10 @@ export const dict = {
     "On iPhone and iPad, add this app to the Home Screen from the Share menu, then open it from there to enable push notifications",
   "settings.notifications.push.denied": "Notifications are blocked for this site",
   "settings.notifications.push.failed": "Could not update push notifications",
+  "session.mobile.navigation": "Session views",
+  "session.mobile.sessions": "Sessions",
+  "session.mobile.sessions.empty": "No sessions",
+  "session.mobile.sessions.badge": "Sessions, {{count}} active",
+  "session.mobile.files": "Files",
+  "session.mobile.files.back": "Back to files",
 }

@@ -82,6 +82,7 @@ import {
 } from "./layout/sidebar-workspace"
 import { ProjectDragOverlay, SortableProject, type ProjectSidebarContext } from "./layout/sidebar-project"
 import { SidebarContent } from "./layout/sidebar-shell"
+import { MobileSessionSheet } from "./layout/mobile-session-sheet"
 
 export default function LegacyLayout(props: ParentProps) {
   const serverSDK = useServerSDK()
@@ -626,6 +627,7 @@ export default function LegacyLayout(props: ParentProps) {
     }
     return result
   })
+  createEffect(() => layout.sessionOrder.set(currentSessions().map((session) => session.id)))
 
   type PrefetchQueue = {
     inflight: Set<string>
@@ -1239,7 +1241,7 @@ export default function LegacyLayout(props: ParentProps) {
     navigateWithSidebarReset(`/${base64Encode(root)}/session`)
   }
 
-  function navigateToSession(session: Session | undefined) {
+  function navigateToSession(session: Pick<Session, "id" | "directory"> | undefined) {
     if (!session) return
     navigateWithSidebarReset(`/${base64Encode(session.directory)}/session/${session.id}`)
   }
@@ -2404,6 +2406,12 @@ export default function LegacyLayout(props: ParentProps) {
         {import.meta.env.DEV && import.meta.env.VITE_DISABLE_DEBUG_BAR !== "1" && state.debugTools && <DebugBar />}
       </div>
       <TabsInfoPopup />
+      <MobileSessionSheet
+        sessions={currentSessions}
+        activeID={() => params.id}
+        onSelect={navigateToSession}
+        onNew={() => command.trigger("session.new")}
+      />
       <ToastRegion v2={false} />
     </div>
   )

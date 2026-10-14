@@ -1178,4 +1178,10 @@ export const dict = {
   "workspace.reset.archived.one": "1 session will be archived.",
   "workspace.reset.archived.many": "{{count}} sessions will be archived.",
   "workspace.reset.note": "This will reset the workspace to match the default branch.",
+  "session.mobile.navigation": "Session views",
+  "session.mobile.sessions": "Sessions",
+  "session.mobile.sessions.empty": "No sessions",
+  "session.mobile.sessions.badge": "Sessions, {{count}} active",
+  "session.mobile.files": "Files",
+  "session.mobile.files.back": "Back to files",
 }

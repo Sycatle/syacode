@@ -20,7 +20,7 @@ import { migrateLegacySessionStateKeys, ServerScope, SessionStateKey } from "@/u
 import { createSessionKeyReader, ensureSessionKey, pruneSessionKeys } from "./layout-helpers"
 import { requireServerKey } from "@/utils/session-route"
 import { type DraftTab, useTabs } from "./tabs"
-import { closeSessionTab, openSessionTab, previewSessionTab, type SessionTabs } from "./layout-tabs"
+import { closeSessionTab, openSessionTab, previewSessionTab, type MobileView, type SessionTabs } from "./layout-tabs"
 
 export { createSessionKeyReader, ensureSessionKey, pruneSessionKeys }
 
@@ -73,6 +73,8 @@ type SessionView = {
   pendingMessage?: string
   pendingMessageAt?: number
   todoCollapsed?: boolean
+  mobileView?: MobileView
+  mobileFile?: string
 }
 
 type TabHandoff = {
@@ -309,6 +311,9 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
     const [ephemeral, setEphemeral] = createStore({
       reviewPanelSource: "other" as ReviewPanelSource,
       sessionTabPreview: {} as Record<string, string | undefined>,
+      sessionSheet: false,
+      // Neighbour order used by the phone swipe and the position indicator; owned by the page that lists sessions.
+      sessionOrder: [] as string[],
     })
 
     const MAX_SESSION_KEYS = 50
@@ -763,6 +768,21 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
           setStore("mobileSidebar", "opened", (x) => !x)
         },
       },
+      sessionSheet: {
+        opened: createMemo(() => ephemeral.sessionSheet),
+        show() {
+          setEphemeral("sessionSheet", true)
+        },
+        hide() {
+          setEphemeral("sessionSheet", false)
+        },
+      },
+      sessionOrder: {
+        ids: createMemo(() => ephemeral.sessionOrder),
+        set(ids: string[]) {
+          setEphemeral("sessionOrder", ids)
+        },
+      },
       pendingMessage: {
         set(sessionKey: string, messageID: string) {
           const at = Date.now()
@@ -833,6 +853,22 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
           setStore("terminal", "opened", next)
         }
 
+        function patchMobile(patch: Pick<SessionView, "mobileView" | "mobileFile">) {
+          const session = key()
+          const current = store.sessionView[session]
+          if (!current) {
+            setStore("sessionView", session, { scroll: {}, ...patch })
+            prune(session)
+            return
+          }
+          setStore(
+            "sessionView",
+            session,
+            produce((draft) => Object.assign(draft, patch)),
+          )
+          prune(session)
+        }
+
         function setReviewPanelOpened(next: boolean, source: ReviewPanelSource) {
           const nextSource = next ? source : "other"
           const current = store.review
@@ -872,6 +908,17 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
               } else {
                 setStore("sessionView", session, "todoCollapsed", collapsed)
               }
+            },
+          },
+          mobile: {
+            view: createMemo<MobileView>(() => s().mobileView ?? "session"),
+            // The file being read full screen in the files view; unset shows the file list.
+            file: createMemo(() => s().mobileFile),
+            setView(view: MobileView) {
+              patchMobile({ mobileView: view })
+            },
+            setFile(file: string | undefined) {
+              patchMobile({ mobileFile: file })
             },
           },
           terminal: {

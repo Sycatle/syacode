@@ -143,30 +143,37 @@ const SessionRow = (props: {
   )
 }
 
-export const SessionItem = (props: SessionItemProps): JSX.Element => {
-  const params = useParams()
-  const layout = useLayout()
-  const language = useLanguage()
+export const useSessionActivity = (session: Accessor<Pick<Session, "id" | "directory">>) => {
   const notification = useNotification()
   const permission = usePermission()
   const serverSync = useServerSync()
-  const unseenCount = createMemo(() => notification.session.unseenCount(props.session.id))
-  const hasError = createMemo(() => notification.session.unseenHasError(props.session.id))
-  const [sessionStore] = serverSync().child(props.session.directory)
+  const [sessionStore] = serverSync().child(session().directory)
+  const unseenCount = createMemo(() => notification.session.unseenCount(session().id))
+  const hasError = createMemo(() => notification.session.unseenHasError(session().id))
   const hasPermissions = createMemo(() => {
     return !!sessionPermissionRequest(
       sessionStore.session,
       serverSync().session.data.permission,
-      props.session.id,
+      session().id,
       (item) => {
-        return !permission.autoResponds(item, props.session.directory)
+        return !permission.autoResponds(item, session().directory)
       },
     )
   })
   const isWorking = createMemo(() => {
     if (hasPermissions()) return false
-    return serverSync().session.data.session_working(props.session.id)
+    return serverSync().session.data.session_working(session().id)
   })
+  return { unseenCount, hasError, hasPermissions, isWorking }
+}
+
+export const SessionItem = (props: SessionItemProps): JSX.Element => {
+  const params = useParams()
+  const layout = useLayout()
+  const language = useLanguage()
+  const serverSync = useServerSync()
+  const activity = useSessionActivity(() => props.session)
+  const [sessionStore] = serverSync().child(props.session.directory)
 
   const tint = createMemo(() =>
     messageAgentColor(serverSync().session.data.message[props.session.id], sessionStore.agent),
@@ -204,10 +211,10 @@ export const SessionItem = (props: SessionItemProps): JSX.Element => {
       mobile={props.mobile}
       dense={props.dense}
       tint={tint}
-      isWorking={isWorking}
-      hasPermissions={hasPermissions}
-      hasError={hasError}
-      unseenCount={unseenCount}
+      isWorking={activity.isWorking}
+      hasPermissions={activity.hasPermissions}
+      hasError={activity.hasError}
+      unseenCount={activity.unseenCount}
       clearHoverProjectSoon={props.clearHoverProjectSoon}
       sidebarOpened={layout.sidebar.opened}
       warmPress={() => warm(2, "high")}

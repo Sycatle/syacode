@@ -1227,4 +1227,10 @@ export const dict = {
     "Sur iPhone et iPad, ajoutez cette app à l'écran d'accueil depuis le menu Partager, puis ouvrez-la depuis là pour activer les notifications push",
   "settings.notifications.push.denied": "Les notifications sont bloquées pour ce site",
   "settings.notifications.push.failed": "Impossible de mettre à jour les notifications push",
+  "session.mobile.navigation": "Vues de la session",
+  "session.mobile.sessions": "Sessions",
+  "session.mobile.sessions.empty": "Aucune session",
+  "session.mobile.sessions.badge": "Sessions, {{count}} en cours",
+  "session.mobile.files": "Fichiers",
+  "session.mobile.files.back": "Retour aux fichiers",
 }

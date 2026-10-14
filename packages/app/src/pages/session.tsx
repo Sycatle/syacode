@@ -57,7 +57,7 @@ import { ConnectionBanner } from "@/pages/session/connection-banner"
 import { ServerConnection, serverName, useServer } from "@/context/server"
 import { useSettings } from "@/context/settings"
 import { useSync } from "@/context/sync"
-import { useTabs } from "@/context/tabs"
+import { useTabs, type SessionTab } from "@/context/tabs"
 import { TerminalProvider, useTerminal } from "@/context/terminal"
 import { PromptInput } from "@/components/prompt-input"
 import { PromptInputV2Composer, usePromptInputV2Controller } from "@/components/prompt-input-v2"
@@ -90,6 +90,10 @@ import { SessionReviewV2SidebarToggle } from "@opencode-ai/session-ui/v2/session
 import { ReviewPanelV2 } from "@/pages/session/v2/review-panel-v2"
 import { createReviewPanelV2State } from "@/pages/session/v2/review-panel-v2-state"
 import { reviewDiffDirectory, reviewDiffNeedsLoad, reviewRootDirectory } from "@/pages/session/v2/review-diff-kinds"
+import { MobileFiles } from "@/pages/session/mobile-files"
+import { createSessionSwipe, SessionPosition } from "@/pages/session/mobile-swipe"
+import { MobileTabBar } from "@/pages/session/mobile-tab-bar"
+import { sessionActivity } from "@/pages/session/mobile-tabs"
 import { TerminalPanel } from "@/pages/session/terminal-panel"
 import { TerminalPanelV2 } from "@/pages/session/terminal-panel-v2"
 import { useComposerCommands } from "@/pages/session/use-composer-commands"
@@ -114,7 +118,6 @@ type VcsMode = "git" | "branch"
 
 const sessionViewState = () => ({
   messageId: undefined as string | undefined,
-  mobileTab: "session" as "session" | "changes",
 })
 
 function isCurrentSessionNotFoundError(error: unknown, sessionID: string | undefined) {
@@ -373,6 +376,8 @@ export default function Page() {
   const location = useLocation()
   const navigate = useNavigate()
   const { params, sessionKey, workspaceKey, tabs, view } = useSessionLayout()
+  const appTabs = useTabs()
+  const server = useServer()
   const reviewMode = () => view().review.mode() ?? "git"
   const reviewFile = () => view().review.file()
   const sessionOwnership = createSessionOwnership(sessionKey)
@@ -667,12 +672,14 @@ export default function Page() {
     list.push("turn")
     return list
   })
-  const mobileChanges = createMemo(() => !isDesktop() && store.mobileTab === "changes")
+  const mobileView = createMemo(() => (isDesktop() ? "session" : view().mobile.view()))
+  const mobileChanges = createMemo(() => mobileView() === "changes")
+  const mobileFiles = createMemo(() => mobileView() === "files")
   const wantsReview = createMemo(() =>
     isDesktop()
       ? desktopFileTreeOpen() ||
         (desktopReviewOpen() && (activeTab() === "review" || (newSessionDesign() && !!activeFileTab())))
-      : store.mobileTab === "changes",
+      : mobileChanges() || mobileFiles(),
   )
   const vcsMode = createMemo<VcsMode | undefined>(() => {
     const mode = reviewMode()
@@ -2016,43 +2023,58 @@ export default function Page() {
 
   useUsageExceededDialogs()
 
-  const mobileTabs = (compact = false, bottom = false) => (
-    <Tabs value={store.mobileTab} class="h-auto">
-      <Tabs.List
-        classList={{
-          "!h-9": compact,
-          "[&::after]:!border-b-0 [&::after]:!border-t [&::after]:!border-border-weak-base": bottom,
-        }}
-      >
-        <Tabs.Trigger
-          value="session"
-          classList={{
-            "!w-1/2 !max-w-none": true,
-            "!border-b-0 !border-t !border-border-weak-base [&:has([data-selected])]:!border-t-transparent": bottom,
-          }}
-          classes={{ button: compact ? "w-full !py-2" : "w-full" }}
-          onClick={() => setStore("mobileTab", "session")}
-        >
-          {language.t("session.tab.session")}
-        </Tabs.Trigger>
-        <Tabs.Trigger
-          value="changes"
-          classList={{
-            "!w-1/2 !max-w-none !border-r-0": true,
-            "!border-b-0 !border-t !border-border-weak-base [&:has([data-selected])]:!border-t-transparent": bottom,
-          }}
-          classes={{ button: compact ? "w-full !py-2" : "w-full" }}
-          onClick={() => setStore("mobileTab", "changes")}
-        >
-          {hasReview()
-            ? language.t("session.review.filesChanged", { count: reviewCount() })
-            : language.t("session.review.change.other")}
-        </Tabs.Trigger>
-      </Tabs.List>
-    </Tabs>
+  const activity = createMemo(() => {
+    const data = serverSync().session.data
+    return sessionActivity({
+      status: data.session_status,
+      permission: data.permission,
+      question: data.question,
+      isChild: (id) => !!data.info[id]?.parentID,
+    })
+  })
+  // The new layout navigates its title bar tabs; the legacy layout navigates its sidebar sessions.
+  const swipeTabs = createMemo(() =>
+    settings.general.newLayoutDesigns()
+      ? appTabs.store.filter((tab): tab is SessionTab => tab.type === "session" && tab.server === server.key)
+      : [],
   )
-  const mobileTabsBottom = createMemo(
-    () => !isDesktop() && settings.general.newLayoutDesigns() && settings.general.mobileTitlebarPosition() === "bottom",
+  const swipeIDs = createMemo(() =>
+    settings.general.newLayoutDesigns() ? swipeTabs().map((tab) => tab.sessionId) : layout.sessionOrder.ids(),
+  )
+  // A child session sits under its parent's tab.
+  const swipeIndex = () => {
+    const id = params.id ?? ""
+    const index = swipeIDs().indexOf(id)
+    if (index !== -1) return index
+    return swipeIDs().indexOf(serverSync().session.peek(id)?.parentID ?? "")
+  }
+  const swipe = createSessionSwipe({
+    enabled: () => !isDesktop() && !!params.id && mobileView() === "session",
+    onStep: (direction) => {
+      if (!settings.general.newLayoutDesigns())
+        return command.trigger(direction > 0 ? "session.next" : "session.previous")
+      const next = swipeTabs()[swipeIndex() + direction]
+      if (next) appTabs.select(next)
+    },
+  })
+  const sessionPosition = createMemo(() => {
+    const index = swipeIndex()
+    return index === -1 ? undefined : { index: index + 1, total: swipeIDs().length }
+  })
+
+  // Opening a file from anywhere (palette, review, tree) on a phone shows it full screen.
+  createEffect(
+    on(
+      () => [sessionKey(), activeFileTab()] as const,
+      ([key, tab], previous) => {
+        if (isDesktop() || !tab || key !== previous?.[0]) return
+        batch(() => {
+          view().mobile.setFile(tab)
+          view().mobile.setView("files")
+        })
+      },
+      { defer: true },
+    ),
   )
 
   const sessionErrorFallback = (error: unknown, reset: () => void) => {
@@ -2063,74 +2085,90 @@ export default function Page() {
   const sessionPanelContent = () => (
     <>
       {sessionSync() ?? ""}
-      <Show when={!isDesktop() && !!params.id && settings.general.newLayoutDesigns() && !mobileTabsBottom()}>
-        {mobileTabs(true)}
-      </Show>
-      <div class="flex-1 min-h-0 overflow-hidden">
-        <Switch>
-          <Match when={params.id && mobileChanges()}>
-            <div class="relative h-full overflow-hidden">
-              {reviewContent({
-                diffStyle: "unified",
-                classes: {
-                  root: "pb-8 [&_[data-slot=session-review-list]]:pb-0",
-                  header: "px-4 !h-16 !pb-4",
-                  container: "px-4",
-                },
-                loadingClass: "px-4 py-4 text-text-weak",
-                emptyClass: "h-full pb-64 -mt-4 flex flex-col items-center justify-center text-center gap-6",
-              })}
-            </div>
-          </Match>
-          <Match when={params.id}>
-            <Show when={messagesReady() ? params.id : undefined} keyed>
-              {(_id) => (
-                <MessageTimeline
-                  actions={actions}
-                  scroll={ui.scroll}
-                  onResumeScroll={resumeScroll}
-                  setScrollRef={setScrollRef}
-                  onScheduleScrollState={scheduleScrollState}
-                  onAutoScrollHandleScroll={autoScroll.handleScroll}
-                  onMarkScrollGesture={markScrollGesture}
-                  hasScrollGesture={hasScrollGesture}
-                  onUserScroll={markUserScroll}
-                  onHistoryScroll={onHistoryScroll}
-                  onAutoScrollInteraction={autoScroll.handleInteraction}
-                  shouldAnchorBottom={() =>
-                    !location.hash && !store.messageId && !ui.pendingMessage && !autoScroll.userScrolled()
-                  }
-                  centered={centered()}
-                  setContentRef={(el) => {
-                    content = el
-                    autoScroll.contentRef(el)
+      <div
+        class="relative flex-1 min-h-0 overflow-hidden"
+        onTouchStart={swipe.onTouchStart}
+        onTouchEnd={swipe.onTouchEnd}
+      >
+        <Show when={!settings.general.newLayoutDesigns()}>
+          <SessionPosition position={sessionPosition} class="absolute top-2" />
+        </Show>
+        <Show when={params.id && mobileFiles()}>
+          <MobileFiles changed={() => reviewDiffs().flatMap((diff) => (diff.file ? [diff.file] : []))} />
+        </Show>
+        <Show when={params.id && mobileChanges()}>
+          <div class="relative h-full overflow-hidden">
+            {reviewContent({
+              diffStyle: "unified",
+              classes: {
+                root: "pb-8 [&_[data-slot=session-review-list]]:pb-0",
+                header: "px-4 !h-16 !pb-4",
+                container: "px-4",
+              },
+              loadingClass: "px-4 py-4 text-text-weak",
+              emptyClass: "h-full pb-64 -mt-4 flex flex-col items-center justify-center text-center gap-6",
+            })}
+          </div>
+        </Show>
+        {/* Kept mounted behind the phone views so the conversation keeps its scroll position. */}
+        <div
+          classList={{
+            contents: !(mobileFiles() || mobileChanges()),
+            "invisible absolute inset-0 pointer-events-none": !!params.id && (mobileFiles() || mobileChanges()),
+          }}
+          inert={!!params.id && (mobileFiles() || mobileChanges())}
+        >
+          <Switch>
+            <Match when={params.id}>
+              <Show when={messagesReady() ? params.id : undefined} keyed>
+                {(_id) => (
+                  <MessageTimeline
+                    actions={actions}
+                    scroll={ui.scroll}
+                    onResumeScroll={resumeScroll}
+                    setScrollRef={setScrollRef}
+                    onScheduleScrollState={scheduleScrollState}
+                    onAutoScrollHandleScroll={autoScroll.handleScroll}
+                    onMarkScrollGesture={markScrollGesture}
+                    hasScrollGesture={hasScrollGesture}
+                    onUserScroll={markUserScroll}
+                    onHistoryScroll={onHistoryScroll}
+                    onAutoScrollInteraction={autoScroll.handleInteraction}
+                    shouldAnchorBottom={() =>
+                      !location.hash && !store.messageId && !ui.pendingMessage && !autoScroll.userScrolled()
+                    }
+                    centered={centered()}
+                    setContentRef={(el) => {
+                      content = el
+                      autoScroll.contentRef(el)
 
-                    const root = scroller
-                    if (root) scheduleScrollState(root)
-                  }}
-                  userMessages={visibleUserMessages()}
-                  setHistoryAnchor={(handlers) => {
-                    captureHistoryAnchor = handlers.capture
-                    restoreHistoryAnchor = handlers.restore
-                  }}
-                  anchor={anchor}
-                  setRevealMessage={(fn) => {
-                    revealMessage = fn
-                  }}
-                  setScrollToEnd={(fn) => {
-                    scrollToEnd = fn
-                  }}
-                />
-              )}
-            </Show>
-          </Match>
-          <Match when={true}>
-            <NewSessionView worktree={newSessionWorktree()} />
-          </Match>
-        </Switch>
+                      const root = scroller
+                      if (root) scheduleScrollState(root)
+                    }}
+                    userMessages={visibleUserMessages()}
+                    setHistoryAnchor={(handlers) => {
+                      captureHistoryAnchor = handlers.capture
+                      restoreHistoryAnchor = handlers.restore
+                    }}
+                    anchor={anchor}
+                    setRevealMessage={(fn) => {
+                      revealMessage = fn
+                    }}
+                    setScrollToEnd={(fn) => {
+                      scrollToEnd = fn
+                    }}
+                  />
+                )}
+              </Show>
+            </Match>
+            <Match when={true}>
+              <NewSessionView worktree={newSessionWorktree()} />
+            </Match>
+          </Switch>
+        </div>
       </div>
 
-      <Show when={(params.id || !newSessionDesign()) && !mobileChanges()}>
+      <Show when={(params.id || !newSessionDesign()) && !mobileChanges() && !mobileFiles()}>
         {(_) => {
           const controller = createSessionComposerRegionController({
             state: composer,
@@ -2244,7 +2282,17 @@ export default function Page() {
           )
         }}
       </Show>
-      <Show when={!!params.id && mobileTabsBottom()}>{mobileTabs(true, true)}</Show>
+      <Show when={!isDesktop() && !!params.id}>
+        <MobileTabBar
+          view={mobileView}
+          terminalOpen={terminalOpen}
+          changes={reviewCount}
+          activity={activity}
+          onView={(next) => view().mobile.setView(next)}
+          onTerminal={() => view().terminal.toggle()}
+          onSessions={() => layout.sessionSheet.show()}
+        />
+      </Show>
     </>
   )
 
@@ -2258,8 +2306,6 @@ export default function Page() {
           "gap-2 p-2": settings.general.newLayoutDesigns(),
         }}
       >
-        <Show when={!isDesktop() && !!params.id && !settings.general.newLayoutDesigns()}>{mobileTabs()}</Show>
-
         <div
           classList={{
             "@container relative shrink-0 flex flex-col min-h-0 h-full flex-1 md:flex-none transition-[width]": true,

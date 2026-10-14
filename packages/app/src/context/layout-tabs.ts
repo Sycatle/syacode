@@ -1,5 +1,8 @@
 export const SESSION_OPEN_FILE_TAB = "open-file"
 
+// Views of the phone layout. The terminal is a separate toggle, so it is not a stored view.
+export type MobileView = "session" | "changes" | "files"
+
 export type SessionTabs = {
   active?: string
   all: string[]
