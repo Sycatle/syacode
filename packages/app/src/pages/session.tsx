@@ -53,6 +53,7 @@ import { PromptProvider, usePrompt } from "@/context/prompt"
 import { usePlatform } from "@/context/platform"
 import { SDKProvider, useSDK } from "@/context/sdk"
 import { useServerSDK } from "@/context/server-sdk"
+import { ConnectionBanner } from "@/pages/session/connection-banner"
 import { ServerConnection, serverName, useServer } from "@/context/server"
 import { useSettings } from "@/context/settings"
 import { useSync } from "@/context/sync"
@@ -287,6 +288,7 @@ function TargetSessionPage() {
   const serverSDK = useServerSDK()
   return (
     <Show when={`${serverSDK().scope}\0${sdk().directory}`} keyed>
+      <ConnectionBanner />
       <SessionPage />
     </Show>
   )

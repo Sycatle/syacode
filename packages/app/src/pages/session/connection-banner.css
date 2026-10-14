@@ -1,0 +1,19 @@
+[data-component="connection-banner"] {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100vw - 24px);
+  padding: 6px 12px;
+  border: 1px solid var(--border-warning-base);
+  border-radius: 999px;
+  background: var(--surface-warning-base);
+  color: var(--text-on-warning-strong);
+  font-size: 13px;
+  line-height: var(--line-height-compact);
+  pointer-events: none;
+}

@@ -3,7 +3,7 @@ import type { Event } from "@opencode-ai/sdk/v2/client"
 import { createSimpleContext } from "@opencode-ai/ui/context"
 import { createGlobalEmitter } from "@solid-primitives/event-bus"
 import { makeEventListener } from "@solid-primitives/event-listener"
-import { type Accessor, batch, createMemo, createResource, onCleanup, onMount } from "solid-js"
+import { type Accessor, batch, createMemo, createResource, createSignal, onCleanup, onMount } from "solid-js"
 import { createApiForServer, createSdkForServer, type ServerApi } from "@/utils/server"
 import { useLanguage } from "./language"
 import { usePlatform } from "./platform"
@@ -171,6 +171,7 @@ type ServerSDKBase = {
   protocol: Promise<ServerProtocol>
   protocolKind: Accessor<ServerProtocol | undefined>
   url: string
+  connection: Accessor<"connected" | "reconnecting">
   client: ReturnType<typeof createSdkForServer>
   api: CompatibleApi
   currentApi: ServerApi
@@ -250,6 +251,16 @@ function createServerSdkContextBase(server: ServerConnection.Any, scope: ServerS
     timer = setTimeout(flush, Math.max(0, FLUSH_FRAME_MS - elapsed))
   }
 
+  // The server heartbeats every 10s. A longer silence means the stream died without an error, which a
+  // locked phone or a Wi-Fi to cellular switch does routinely; abort it so the loop reconnects.
+  const STALL_MS = 30_000
+  const [connection, setConnection] = createSignal<"connected" | "reconnecting">("connected")
+  let lastEvent = Date.now()
+  const checkStall = () => {
+    if (!attempt || Date.now() - lastEvent < STALL_MS) return
+    attempt.abort()
+  }
+
   let streamErrorLogged = false
   const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
   let attempt: AbortController | undefined
@@ -279,6 +290,8 @@ function createServerSdkContextBase(server: ServerConnection.Any, scope: ServerS
               : eventApi.event.subscribe({ signal: attempt.signal })
           let yielded = Date.now()
           for await (const event of events) {
+            lastEvent = Date.now()
+            setConnection("connected")
             streamErrorLogged = false
             const legacy = "payload" in event
             if (legacy && event.payload.type === "sync") continue
@@ -305,7 +318,9 @@ function createServerSdkContextBase(server: ServerConnection.Any, scope: ServerS
         }
 
         if (abort.signal.aborted || !started || generation !== active) return
+        setConnection("reconnecting")
         await wait(RECONNECT_DELAY_MS)
+        lastEvent = Date.now()
       }
     })().finally(() => {
       if (run !== current) return
@@ -323,6 +338,12 @@ function createServerSdkContextBase(server: ServerConnection.Any, scope: ServerS
   }
 
   onMount(() => {
+    const interval = setInterval(checkStall, 5_000)
+    onCleanup(() => clearInterval(interval))
+    makeEventListener(window, "online", checkStall)
+    makeEventListener(document, "visibilitychange", () => {
+      if (document.visibilityState === "visible") checkStall()
+    })
     makeEventListener(window, "pagehide", stop)
     makeEventListener(window, "pageshow", (event) => resumeStreamAfterPageShow(event, start))
   })
@@ -354,6 +375,7 @@ function createServerSdkContextBase(server: ServerConnection.Any, scope: ServerS
     protocol,
     protocolKind,
     url: server.http.url,
+    connection,
     client: sdk,
     api,
     currentApi,
