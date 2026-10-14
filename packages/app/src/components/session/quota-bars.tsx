@@ -15,7 +15,7 @@ const fill: Record<Level, string> = {
 }
 
 const figure: Record<Level, string> = {
-  ok: "text-text-weak",
+  ok: "text-text-strong",
   warning: "text-icon-warning-base",
   error: "text-icon-critical-base",
 }
@@ -23,7 +23,8 @@ const figure: Record<Level, string> = {
 /**
  * The 5-hour and weekly windows of the subscription the session runs on (Claude or ChatGPT). Each bar carries a
  * marker where usage would sit if it kept a steady pace, and turns amber then red when it runs ahead of it.
- * `compact` is a single row for the composer; `detailed` adds the provider, the reset countdown and the legend.
+ * `compact` is a single row for the composer with the time left before each reset; `detailed` spells the reset out
+ * and adds the provider and the legend.
  */
 export function QuotaBars(props: { quota: NonNullable<ForkUsage["quota"]>; variant: "compact" | "detailed" }) {
   const language = useLanguage()
@@ -107,6 +108,9 @@ export function QuotaBars(props: { quota: NonNullable<ForkUsage["quota"]>; varia
                 <span class="shrink-0 tabular-nums" classList={{ [figure[item.pace.level]]: true }}>
                   {percent(item.window.utilization)}
                 </span>
+                <Show when={props.variant === "compact"}>
+                  <span class="shrink-0 tabular-nums">{remaining(item.window.reset)}</span>
+                </Show>
               </div>
               <Show when={props.variant === "detailed"}>
                 <div>{language.t("session.quota.resetIn", { time: remaining(item.window.reset) })}</div>

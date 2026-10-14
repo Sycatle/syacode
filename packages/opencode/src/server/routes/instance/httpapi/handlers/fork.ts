@@ -23,9 +23,10 @@ export const forkHandlers = HttpApiBuilder.group(InstanceHttpApi, "fork", (handl
         Effect.sync(() => {
           const steps = ForkTelemetry.steps(ctx.params.sessionID, { children: true })
           const summary = ForkSummary.summarize(steps, ctx.params.sessionID)
-          // The quota belongs to the provider of the latest turn; a session without telemetry has none.
+          // The quota belongs to the provider of the latest turn. A session without a turn yet shows the
+          // subscription in use; one whose provider has no fresh snapshot (API key) has none.
           const provider = steps.findLast((step) => step.session_id === ctx.params.sessionID)?.provider_id
-          const snapshot = provider ? ForkQuota.fresh(provider) : undefined
+          const snapshot = provider ? ForkQuota.fresh(provider) : ForkQuota.active()
           return {
             ...summary,
             quota: snapshot && {
