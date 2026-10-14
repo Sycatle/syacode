@@ -260,3 +260,18 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Touch screens: extend the tap area vertically to ~44px without changing the visual size. */
+@media (hover: none) and (pointer: coarse) {
+  [data-component="button-v2"][data-size="normal"]::after {
+    content: "";
+    position: absolute;
+    inset: -8px 0;
+  }
+
+  [data-component="button-v2"][data-size="small"]::after {
+    content: "";
+    position: absolute;
+    inset: -10px 0;
+  }
+}

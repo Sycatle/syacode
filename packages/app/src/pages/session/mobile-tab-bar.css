@@ -1,6 +1,13 @@
+/* Same filled-pill active state as the title bar tabs. */
+[data-component="mobile-tab-bar"] button {
+  border: 4px solid transparent;
+  border-radius: 12px;
+  background-clip: padding-box;
+}
+
 [data-component="mobile-tab-bar"] button[data-selected] {
   color: var(--text-strong);
-  box-shadow: inset 0 2px 0 0 var(--text-interactive-base);
+  background-color: var(--v2-background-bg-layer-02, var(--surface-base-active));
 }
 
 [data-component="mobile-tab-bar"] [data-slot="badge"] {

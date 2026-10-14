@@ -188,3 +188,14 @@
     transform: scale(1);
   }
 }
+
+/* Touch screens: 44px rows so menu items are comfortable to hit. */
+@media (hover: none) and (pointer: coarse) {
+  [data-component="menu-v2-item"] {
+    height: 44px;
+  }
+
+  [data-slot="menu-v2-group-label"] {
+    height: 36px;
+  }
+}

@@ -157,3 +157,20 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Touch screens: extend the tap area to ~44px without changing the visual size. */
+@media (hover: none) and (pointer: coarse) {
+  [data-component="icon-button-v2"]:not(.absolute, .fixed, .sticky) {
+    position: relative;
+  }
+
+  [data-component="icon-button-v2"]::after {
+    content: "";
+    position: absolute;
+    inset: -8px;
+  }
+
+  [data-component="icon-button-v2"][data-size="small"]::after {
+    inset: -12px;
+  }
+}
