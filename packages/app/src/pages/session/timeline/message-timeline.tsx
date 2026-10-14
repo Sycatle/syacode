@@ -15,6 +15,7 @@ import { createStore, produce } from "solid-js/store"
 import { Dynamic } from "solid-js/web"
 import { useNavigate } from "@solidjs/router"
 import { useMutation } from "@tanstack/solid-query"
+import { createMediaQuery } from "@solid-primitives/media"
 import { createVirtualizer, defaultRangeExtractor, elementScroll, type VirtualItem } from "@tanstack/solid-virtual"
 import { Accordion } from "@opencode-ai/ui/accordion"
 import { Button } from "@opencode-ai/ui/button"
@@ -36,7 +37,15 @@ import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
 import { DropdownMenu } from "@opencode-ai/ui/dropdown-menu"
 import { MenuV2 } from "@opencode-ai/ui/v2/menu-v2"
 import { Dialog } from "@opencode-ai/ui/dialog"
-import { DialogFooter, DialogHeader, DialogTitleGroup, DialogV2 } from "@opencode-ai/ui/v2/dialog-v2"
+import {
+  DialogBody,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTitleGroup,
+  DialogV2,
+} from "@opencode-ai/ui/v2/dialog-v2"
+import { TextInputV2 } from "@opencode-ai/ui/v2/text-input-v2"
 import { InlineInput } from "@opencode-ai/ui/inline-input"
 import { ButtonV2 } from "@opencode-ai/ui/v2/button-v2"
 import { SessionRetry } from "@opencode-ai/session-ui/session-retry"
@@ -61,6 +70,7 @@ import { useFileComponent } from "@opencode-ai/ui/context/file"
 import { shouldMarkBoundaryGesture, normalizeWheelDelta } from "@/pages/session/message-gesture"
 import { SessionContextUsage } from "@/components/session-context-usage"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
+import { useCommand } from "@/context/command"
 import { useLanguage } from "@/context/language"
 import { useSessionKey } from "@/pages/session/session-layout"
 import { useSessionArchive } from "@/pages/session/session-archive"
@@ -264,6 +274,7 @@ export function MessageTimeline(props: {
   const sync = useSync()
   const settings = useSettings()
   const dialog = useDialog()
+  const command = useCommand()
   const sessionArchive = useSessionArchive()
   const language = useLanguage()
   const { params, sessionKey } = useSessionKey()
@@ -329,7 +340,10 @@ export function MessageTimeline(props: {
     if (value) return value
     return language.t("command.session.new")
   })
-  const showHeader = createMemo(() => !!(titleValue() || parentID()))
+  // On phones the tab above already names a top-level session and the sheet carries its actions, so the header only
+  // stays for child sessions, where it holds the way back to the parent.
+  const desktop = createMediaQuery("(min-width: 768px)")
+  const showHeader = createMemo(() => !!(titleValue() || parentID()) && (desktop() || !!parentID()))
   const projection = createTimelineProjection({
     messages: sessionMessages,
     userMessages: () => props.userMessages,
@@ -935,6 +949,81 @@ export function MessageTimeline(props: {
       </Dialog>
     )
   }
+
+  function DialogRenameSession(props: { sessionID: string }) {
+    const current = sessionTitle(sync().session.get(props.sessionID)?.title) ?? ""
+    const [draft, setDraft] = createSignal(current)
+    const save = (event: SubmitEvent) => {
+      event.preventDefault()
+      const next = draft().trim()
+      dialog.close()
+      if (next && next !== current) titleMutation.mutate({ id: props.sessionID, title: next })
+    }
+
+    if (settings.general.newLayoutDesigns())
+      return (
+        <DialogV2 fit>
+          <form onSubmit={save} class="contents">
+            <DialogHeader hideClose>
+              <DialogTitle>{language.t("common.rename")}</DialogTitle>
+            </DialogHeader>
+            <DialogBody class="w-full px-4 pb-1">
+              <TextInputV2
+                autofocus
+                appearance="large"
+                class="!w-full"
+                value={draft()}
+                onInput={(event) => setDraft(event.currentTarget.value)}
+              />
+            </DialogBody>
+            <DialogFooter>
+              <ButtonV2 type="button" variant="ghost" onClick={() => dialog.close()}>
+                {language.t("common.cancel")}
+              </ButtonV2>
+              <ButtonV2 type="submit" variant="contrast">
+                {language.t("common.save")}
+              </ButtonV2>
+            </DialogFooter>
+          </form>
+        </DialogV2>
+      )
+
+    return (
+      <Dialog title={language.t("common.rename")} fit>
+        <form onSubmit={save} class="flex flex-col gap-4 pl-6 pr-2.5 pb-3">
+          <TextField autofocus type="text" value={draft()} onChange={setDraft} />
+          <div class="flex justify-end gap-2">
+            <Button type="button" variant="ghost" size="large" onClick={() => dialog.close()}>
+              {language.t("common.cancel")}
+            </Button>
+            <Button type="submit" variant="primary" size="large">
+              {language.t("common.save")}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+    )
+  }
+
+  // Rename and delete have no palette entry; the phone session sheet triggers them in place of the hidden header menu.
+  command.register("session-actions", () => {
+    const id = sessionID()
+    if (!id || parentID()) return []
+    return [
+      {
+        id: "session.rename",
+        title: language.t("common.rename"),
+        hidden: true,
+        onSelect: () => dialog.show(() => <DialogRenameSession sessionID={id} />),
+      },
+      {
+        id: "session.delete",
+        title: language.t("common.delete"),
+        hidden: true,
+        onSelect: () => dialog.show(() => <DialogDeleteSession sessionID={id} />),
+      },
+    ]
+  })
 
   const workingTurn = (userMessageID: string) => sessionStatus().type !== "idle" && activeMessageID() === userMessageID
 

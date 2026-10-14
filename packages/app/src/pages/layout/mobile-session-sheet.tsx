@@ -4,6 +4,7 @@ import { IconButton } from "@opencode-ai/ui/icon-button"
 import { Spinner } from "@opencode-ai/ui/spinner"
 import { makeEventListener } from "@solid-primitives/event-listener"
 import { type Accessor, createEffect, createMemo, For, Match, Show, Switch } from "solid-js"
+import { useCommand } from "@/context/command"
 import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
 import { useServerSync } from "@/context/server-sync"
@@ -11,6 +12,16 @@ import { sessionTitle } from "@/utils/session-title"
 import { useSessionActivity } from "./sidebar-items"
 
 const SESSION_LIMIT = 40
+
+// Commands registered by the session page; the ones it does not offer for the current session are left out.
+const ACTIONS = [
+  { id: "session.rename", label: "common.rename" },
+  { id: "session.share" },
+  { id: "session.unshare" },
+  { id: "session.export", label: "common.export" },
+  { id: "session.archive", label: "common.archive" },
+  { id: "session.delete", label: "common.delete" },
+] as const
 
 export type SheetSession = { id: string; title?: string; directory: string }
 
@@ -24,7 +35,17 @@ export function MobileSessionSheet(props: {
   const layout = useLayout()
   const language = useLanguage()
   const serverSync = useServerSync()
+  const command = useCommand()
   const close = () => layout.sessionSheet.hide()
+
+  const actions = createMemo(() => {
+    if (!props.activeID()) return []
+    return ACTIONS.flatMap((action) => {
+      const option = command.options.find((item) => item.id === action.id)
+      if (!option || option.disabled) return []
+      return [{ id: action.id, label: "label" in action ? language.t(action.label) : option.title }]
+    })
+  })
 
   // Sessions waiting on the user come first; the rest keep the caller's order, which is also the swipe order.
   const sorted = createMemo(() => {
@@ -101,6 +122,24 @@ export function MobileSessionSheet(props: {
               </div>
             </Show>
           </div>
+          <Show when={actions().length > 0}>
+            <div class="flex shrink-0 flex-wrap gap-2 border-t border-border-weak-base px-3 py-2">
+              <For each={actions()}>
+                {(action) => (
+                  <button
+                    type="button"
+                    class="min-h-11 rounded-md bg-surface-raised-base px-3 text-14-regular text-text-strong hover:bg-surface-raised-base-hover"
+                    onClick={() => {
+                      close()
+                      command.trigger(action.id)
+                    }}
+                  >
+                    {action.label}
+                  </button>
+                )}
+              </For>
+            </div>
+          </Show>
         </div>
       </div>
     </Show>
