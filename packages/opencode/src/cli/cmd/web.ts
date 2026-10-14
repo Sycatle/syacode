@@ -39,7 +39,13 @@ export const WebCommand = effectCmd({
   handler: Effect.fn("Cli.web")(function* (args) {
     // FORK-SEAM: cache-ttl (web sessions pause between turns)
     process.env.OPENCODE_FORK_CACHE_TTL ??= ForkCache.INTERACTIVE_TTL
+    // FORK-SEAM: prompt-suggestion (web and desktop clients show suggestions, like the TUI)
+    process.env.OPENCODE_FORK_INTERACTIVE ??= "1"
     const { Server } = yield* Effect.promise(() => import("../../server/server"))
+    // A restart leaves tool calls running in the database; nothing else settles them (this server owns the database).
+    const { AppRuntime } = yield* Effect.promise(() => import("../../effect/app-runtime"))
+    const { SessionStaleTools } = yield* Effect.promise(() => import("../../session/stale-tools"))
+    yield* Effect.promise(() => AppRuntime.runPromise(SessionStaleTools.settle))
     if (!Flag.OPENCODE_SERVER_PASSWORD) {
       UI.println(UI.Style.TEXT_WARNING_BOLD + "!  OPENCODE_SERVER_PASSWORD is not set; server is unsecured.")
     }
