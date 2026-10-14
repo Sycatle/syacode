@@ -1,3 +1,4 @@
+import { createMediaQuery } from "@solid-primitives/media"
 import { useFilteredList } from "@opencode-ai/ui/hooks"
 import { useSpring } from "@opencode-ai/ui/motion-spring"
 import {
@@ -115,6 +116,7 @@ const EXAMPLES = [
 ] as const
 
 export const PromptInput: Component<PromptInputProps> = (props) => {
+  const touch = createMediaQuery("(pointer: coarse)")
   const sdk = useSDK()
 
   const sync = useSync()
@@ -1305,8 +1307,9 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     }
 
     // Handle Shift+Enter BEFORE IME check - Shift+Enter is never used for IME input
-    // and should always insert a newline regardless of composition state
-    if (event.key === "Enter" && event.shiftKey) {
+    // and should always insert a newline regardless of composition state.
+    // A touch keyboard has no Shift+Enter, so there Return is the only way to start a new line.
+    if (event.key === "Enter" && (event.shiftKey || (touch() && !event.ctrlKey && !event.metaKey))) {
       addPart({ type: "text", content: "\n", start: 0, end: 0 })
       event.preventDefault()
       return
@@ -1523,6 +1526,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
               autocorrect={store.mode === "normal" ? "on" : "off"}
               spellcheck={store.mode === "normal"}
               inputMode="text"
+              enterkeyhint={touch() ? "enter" : "send"}
               // @ts-expect-error
               autocomplete="off"
               onInput={handleInput}

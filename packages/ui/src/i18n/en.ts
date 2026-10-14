@@ -148,6 +148,7 @@ export const dict: Record<string, string> = {
   "ui.imagePreview.alt": "Image preview",
   "ui.scrollView.ariaLabel": "scrollable content",
 
+  "ui.tool.image.alt": "Tool result image",
   "ui.tool.read": "Read",
   "ui.tool.loaded": "Loaded",
   "ui.tool.list": "List",

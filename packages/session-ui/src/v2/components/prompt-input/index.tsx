@@ -48,6 +48,7 @@ export type PromptInputV2Props = {
 
 export function PromptInputV2(props: PromptInputV2Props) {
   const i18n = useI18n()
+  const touch = () => window.matchMedia("(pointer: coarse)").matches
   const state = props.controller.state
   const view = props.controller.view
   let editor: HTMLDivElement | undefined
@@ -155,6 +156,7 @@ export function PromptInputV2(props: PromptInputV2Props) {
             aria-multiline="true"
             aria-label={i18n.t("ui.promptInput.label")}
             contenteditable={!props.disabled && !props.readOnly}
+            enterkeyhint={touch() ? "enter" : "send"}
             autocapitalize={state.mode === "normal" ? "sentences" : "off"}
             autocorrect={state.mode === "normal" ? "on" : "off"}
             spellcheck={state.mode === "normal"}
@@ -171,7 +173,8 @@ export function PromptInputV2(props: PromptInputV2Props) {
             }}
             onKeyDown={(event) => {
               if (props.controller.onKeyDown(event)) return
-              if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+              // On a touch keyboard Enter is the only way to start a new line; the send button submits.
+              if (event.key === "Enter" && !event.shiftKey && !event.isComposing && !(touch() && !event.ctrlKey && !event.metaKey)) {
                 event.preventDefault()
                 if (event.repeat) return
                 props.controller.submit()

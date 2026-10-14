@@ -1564,6 +1564,14 @@ PART_MAPPING["tool"] = function ToolPartDisplay(props) {
   })
 
   const render = createMemo(() => ToolRegistry.render(part().tool) ?? GenericTool)
+  // Screenshots from MCP or browser tools arrive as image attachments that no tool renderer shows.
+  const images = createMemo(() => {
+    const state = part().state
+    if (part().tool === "read" || state.status !== "completed") return []
+
+    return (state.attachments ?? []).filter((file) => file.mime.startsWith("image/") && file.url.startsWith("data:image/"))
+  })
+  const dialog = useDialog()
   const controlledOpen = () => (props.onToolOpenChange ? (props.toolOpen ?? props.defaultOpen) : undefined)
   const handleToolOpenChange = (open: boolean) => props.onToolOpenChange?.(open)
 
@@ -1627,6 +1635,27 @@ PART_MAPPING["tool"] = function ToolPartDisplay(props) {
             />
           </Match>
         </Switch>
+        <Show when={images().length > 0}>
+          <div data-component="tool-images">
+            <For each={images()}>
+              {(file) => (
+                <img
+                  src={file.url}
+                  alt={file.filename ?? i18n.t("ui.tool.image.alt")}
+                  loading="lazy"
+                  role="button"
+                  tabIndex={0}
+                  onLoad={() => props.onContentRendered?.()}
+                  onClick={() => dialog.show(() => <ImagePreview src={file.url} alt={file.filename} />)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ")
+                      dialog.show(() => <ImagePreview src={file.url} alt={file.filename} />)
+                  }}
+                />
+              )}
+            </For>
+          </div>
+        </Show>
       </div>
     </Show>
   )

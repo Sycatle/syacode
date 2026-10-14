@@ -368,6 +368,24 @@
   }
 }
 
+[data-component="tool-images"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+  margin-top: 8px;
+
+  img {
+    cursor: zoom-in;
+    display: block;
+    max-width: min(100%, 360px);
+    max-height: 240px;
+    object-fit: contain;
+    border: 0.5px solid var(--border-weak-base);
+    border-radius: 6px;
+  }
+}
+
 [data-component="bash-output"] {
   direction: ltr;
   unicode-bidi: isolate;
@@ -812,6 +830,9 @@
     code {
       font-size: 14px;
       line-height: var(--line-height-large);
+      /* Keep multi-line commands readable instead of forcing horizontal scrolling. */
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
     }
   }
 
@@ -832,6 +853,30 @@
     [data-component="button"] {
       padding-left: 12px;
       padding-right: 12px;
+    }
+  }
+
+  /* Phones: one full-width, thumb-sized button per decision, primary action first. */
+  @media (max-width: 767px) {
+    [data-slot="permission-footer"] {
+      display: block;
+      padding-bottom: max(8px, env(safe-area-inset-bottom));
+    }
+
+    [data-slot="permission-footer-actions"] {
+      flex-direction: column-reverse;
+      align-items: stretch;
+      gap: 8px;
+
+      [data-component="button"] {
+        width: 100%;
+        min-height: 44px;
+        justify-content: center;
+      }
+    }
+
+    [data-slot="permission-patterns"] {
+      max-height: 40dvh;
     }
   }
 }
