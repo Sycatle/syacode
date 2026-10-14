@@ -178,12 +178,47 @@
   background-color: var(--v2-background-bg-layer-01);
 }
 
+/* On a phone the section list would take half the dialog: show it as a scrollable strip above the panel. */
 @media (max-width: 639px) {
+  .settings-v2[data-component="tabs-v2"][data-variant="settings"][data-orientation="vertical"] {
+    flex-direction: column;
+  }
+
   .settings-v2[data-component="tabs-v2"][data-variant="settings"][data-orientation="vertical"]
     [data-slot="tabs-v2-list"] {
-    width: 144px;
-    min-width: 144px;
-    padding-inline: 8px;
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    width: 100%;
+    min-width: 0;
+    height: auto;
+    padding: 8px;
+    overflow: auto hidden;
+    border-inline-end: none;
+    border-bottom: 1px solid var(--v2-border-border-base);
+    scrollbar-width: none;
+  }
+
+  .settings-v2 [data-slot="tabs-v2-list"] div:not([data-slot]):not([data-component]) {
+    display: contents;
+  }
+
+  .settings-v2 [data-slot="tabs-v2-section-title"],
+  .settings-v2 .settings-v2-nav-footer {
+    display: none;
+  }
+
+  .settings-v2[data-component="tabs-v2"][data-variant="settings"][data-orientation="vertical"]
+    [data-slot="tabs-v2-trigger-wrapper"] {
+    width: auto;
+    height: 40px;
+    flex-shrink: 0;
+  }
+
+  .settings-v2[data-component="tabs-v2"][data-variant="settings"][data-orientation="vertical"]
+    [data-slot="tabs-v2-trigger"] {
+    padding: 0 12px;
+    white-space: nowrap;
   }
 }
 

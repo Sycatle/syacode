@@ -2282,17 +2282,6 @@ export default function Page() {
           )
         }}
       </Show>
-      <Show when={!isDesktop() && !!params.id}>
-        <MobileTabBar
-          view={mobileView}
-          terminalOpen={terminalOpen}
-          changes={reviewCount}
-          activity={activity}
-          onView={(next) => view().mobile.setView(next)}
-          onTerminal={() => view().terminal.toggle()}
-          onSessions={() => layout.sessionSheet.show()}
-        />
-      </Show>
     </>
   )
 
@@ -2369,7 +2358,7 @@ export default function Page() {
         </Show>
         <Show when={newSessionDesign()}>
           <Show when={isDesktop() ? desktopV2PanelLayout().visible : terminalOpen()}>
-            <div class="min-w-0 h-full flex flex-1 flex-col">
+            <div class="min-w-0 flex flex-none flex-col md:h-full md:flex-1">
               <Show when={isDesktop() && (desktopV2ReviewOpen() || desktopFileTreeOpen())}>
                 <div class="min-h-0 flex-1">
                   <Suspense>
@@ -2419,8 +2408,8 @@ export default function Page() {
               <Show when={terminalOpen()}>
                 <div
                   classList={{
-                    "min-h-0 shrink-0": desktopV2PanelLayout().stacked,
-                    "min-h-0 flex-1": !desktopV2PanelLayout().stacked,
+                    "min-h-0 shrink-0": !isDesktop() || desktopV2PanelLayout().stacked,
+                    "min-h-0 flex-1": isDesktop() && !desktopV2PanelLayout().stacked,
                   }}
                 >
                   <TerminalPanelV2 stacked={desktopV2PanelLayout().stacked} />
@@ -2433,6 +2422,18 @@ export default function Page() {
 
       <Show when={!newSessionDesign()}>
         <TerminalPanel />
+      </Show>
+      {/* Below the terminal, so the bar stays at the bottom of the screen whatever is open. */}
+      <Show when={!isDesktop() && !!params.id}>
+        <MobileTabBar
+          view={mobileView}
+          terminalOpen={terminalOpen}
+          changes={reviewCount}
+          activity={activity}
+          onView={(next) => view().mobile.setView(next)}
+          onTerminal={() => view().terminal.toggle()}
+          onSessions={() => layout.sessionSheet.show()}
+        />
       </Show>
     </SessionRouteFrame>
   )
