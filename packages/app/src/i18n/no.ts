@@ -1201,6 +1201,9 @@ export const dict = {
   "error.page.action.exportLogs": "Eksporter logger",
 
   "home.title": "Hjem",
+  "home.fleet.title": "Running in all directories ({{count}})",
+  "home.fleet.waiting": "{{count}} waiting",
+  "home.fleet.retry": "retrying",
   "home.projects": "Prosjekter",
   "home.project.add": "Legg til prosjekt",
   "home.recentlyClosed": "Nylig lukket",

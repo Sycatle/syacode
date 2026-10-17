@@ -989,6 +989,9 @@ export const dict = {
   "error.page.action.exportLogs": "로그 내보내기",
 
   "home.title": "홈",
+  "home.fleet.title": "Running in all directories ({{count}})",
+  "home.fleet.waiting": "{{count}} waiting",
+  "home.fleet.retry": "retrying",
   "home.projects": "프로젝트",
   "home.project.add": "프로젝트 추가",
   "home.recentlyClosed": "최근에 닫은 항목",
