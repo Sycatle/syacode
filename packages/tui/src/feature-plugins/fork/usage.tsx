@@ -43,7 +43,7 @@ function useSummary(sessionID: () => string) {
     timer = undefined
     computed.clear()
   })
-  return createMemo(() => {
+  const memo = createMemo(() => {
     tick()
     const key = revision()
     const cached = computed.get(sessionID())
@@ -52,6 +52,9 @@ function useSummary(sessionID: () => string) {
     const quota = value.quota && Date.now() - value.quota.time < ForkQuota.FRESH_MS ? value.quota : undefined
     return { ...value, quota, windowSpent: quota ? value.windowSpent : undefined }
   })
+  // A memo read after its owner was disposed (client remount) yields undefined instead of its last value.
+  let last: ReturnType<typeof memo> | undefined
+  return () => (last = memo() ?? last ?? { ...summarize(sessionID()), quota: undefined, windowSpent: undefined })
 }
 
 function summarize(sessionID: string) {
