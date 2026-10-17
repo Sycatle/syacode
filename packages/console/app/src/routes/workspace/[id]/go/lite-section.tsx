@@ -2,18 +2,18 @@ import { action, useParams, useAction, useSubmission, json, query, createAsync }
 import { createStore } from "solid-js/store"
 import { createMemo, createSignal, For, Show } from "solid-js"
 import { Modal } from "~/component/modal"
-import { Billing } from "@opencode-ai/console-core/billing.js"
-import { Database, eq, and, gte, isNull, sql } from "@opencode-ai/console-core/drizzle/index.js"
-import { BillingTable, LiteTable, UsageTable } from "@opencode-ai/console-core/schema/billing.sql.js"
-import { KeyTable } from "@opencode-ai/console-core/schema/key.sql.js"
-import { WorkspaceTable } from "@opencode-ai/console-core/schema/workspace.sql.js"
-import { Actor } from "@opencode-ai/console-core/actor.js"
-import { Workspace } from "@opencode-ai/console-core/workspace.js"
-import { Subscription } from "@opencode-ai/console-core/subscription.js"
-import { LiteData } from "@opencode-ai/console-core/lite.js"
-import { ZenData } from "@opencode-ai/console-core/model.js"
-import { getMonthlyBounds, getWeekBounds } from "@opencode-ai/console-core/util/date.js"
-import { centsToMicroCents } from "@opencode-ai/console-core/util/price.js"
+import { Billing } from "@opencode/console-core/billing.js"
+import { Database, eq, and, gte, isNull, sql } from "@opencode/console-core/drizzle/index.js"
+import { BillingTable, LiteTable, UsageTable } from "@opencode/console-core/schema/billing.sql.js"
+import { KeyTable } from "@opencode/console-core/schema/key.sql.js"
+import { WorkspaceTable } from "@opencode/console-core/schema/workspace.sql.js"
+import { Actor } from "@opencode/console-core/actor.js"
+import { Workspace } from "@opencode/console-core/workspace.js"
+import { Subscription } from "@opencode/console-core/subscription.js"
+import { LiteData } from "@opencode/console-core/lite.js"
+import { ZenData } from "@opencode/console-core/model.js"
+import { getMonthlyBounds, getWeekBounds } from "@opencode/console-core/util/date.js"
+import { centsToMicroCents } from "@opencode/console-core/util/price.js"
 import { withActor } from "~/context/auth.withActor"
 import { queryBillingInfo } from "../../common"
 import styles from "./lite-section.module.css"
@@ -640,11 +640,13 @@ export function LiteSection(props: { lite: LiteSubscription | undefined }) {
           </p>
           <h3 data-slot="promo-models-title">{i18n.t("workspace.lite.promo.modelsTitle")}</h3>
           <ul data-slot="promo-models">
-            <li>Space Bunny Free</li>
+            <li>Space Bunny</li>
+            <li>Step 5 Preview Free</li>
             <li>Grok 4.7</li>
             <li>Grok 4.6</li>
             <li>GPT 6 Luna</li>
             <li>GPT 5.6 Luna</li>
+            <li>Claude Haiku 5.5</li>
             <li>GLM-5.3-Flash</li>
             <li>GLM-5.3</li>
             <li>GLM-5.2</li>
@@ -673,7 +675,6 @@ export function LiteSection(props: { lite: LiteSubscription | undefined }) {
             <li>Hy4 preview</li>
             <li>Hy3</li>
           </ul>
-          <p data-slot="promo-description">{i18n.t("go.promo.spaceBunny")}</p>
           <p data-slot="promo-description">{i18n.t("workspace.lite.promo.footer")}</p>
           <div data-slot="subscribe-actions">
             <button

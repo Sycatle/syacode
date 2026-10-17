@@ -1,0 +1,95 @@
+import { afterEach, expect, test } from "bun:test"
+import { ForkStatusline } from "../src/statusline"
+
+afterEach(() => {
+  delete process.env.OPENCODE_FORK_BACKGROUND_NOTIFY
+})
+
+test("config needs a command and clamps the interval", () => {
+  expect(ForkStatusline.config(undefined)).toBeUndefined()
+  expect(ForkStatusline.config({ command: "  " })).toBeUndefined()
+  expect(ForkStatusline.config({ command: "echo hi" })).toEqual({ command: "echo hi", interval: 5000 })
+  expect(ForkStatusline.config({ command: "x", interval: 10 })?.interval).toBe(1000)
+  expect(ForkStatusline.config({ command: "x", interval: 30000 })?.interval).toBe(30000)
+})
+
+test("quota keeps utilization, reset and status only", () => {
+  expect(ForkStatusline.quota(undefined)).toBeUndefined()
+  const five_hour = { utilization: 0.11, reset: 1000, status: "allowed" }
+  expect(ForkStatusline.quota({ five_hour, status: "allowed" })).toEqual({
+    five_hour: { utilization: 0.11, reset: 1000 },
+    seven_day: undefined,
+    status: "allowed",
+  })
+})
+
+test("input carries only session, model, agent and cwd", () => {
+  const data = { sessionID: "s", model: { providerID: "p", modelID: "m" }, agent: "build", cwd: "/p" }
+  expect(JSON.parse(ForkStatusline.input(data))).toEqual(data)
+})
+
+test("firstLine strips ANSI, skips blanks and truncates", () => {
+  expect(ForkStatusline.firstLine("\n\u001b[32mgreen\u001b[0m line\nsecond", 80)).toBe("green line")
+  expect(ForkStatusline.firstLine("abcdefgh", 3)).toBe("abc")
+  expect(ForkStatusline.firstLine("", 10)).toBe("")
+})
+
+test("finished parses synthetic job messages", () => {
+  expect(ForkStatusline.finished('<task id="ses_1" state="completed">\nx')).toEqual({ kind: "task", state: "completed" })
+  expect(ForkStatusline.finished('<shell id="job_1" state="error" exit="2">\nx')).toEqual({
+    kind: "shell",
+    state: "error",
+    exit: 2,
+  })
+  expect(ForkStatusline.finished('<task id="a" state="running">')).toBeUndefined()
+  expect(ForkStatusline.finished("hello <task")).toBeUndefined()
+})
+
+test("notification titles", () => {
+  expect(ForkStatusline.notification({ kind: "task", state: "completed" })).toBe("Subagent done")
+  expect(ForkStatusline.notification({ kind: "shell", state: "completed", exit: 0 })).toBe(
+    "Background command done (exit 0)",
+  )
+  expect(ForkStatusline.notification({ kind: "shell", state: "error", exit: 1 })).toBe(
+    "Background command failed (exit 1)",
+  )
+})
+
+test("background notify can be disabled", () => {
+  expect(ForkStatusline.backgroundNotifyEnabled()).toBe(true)
+  process.env.OPENCODE_FORK_BACKGROUND_NOTIFY = "0"
+  expect(ForkStatusline.backgroundNotifyEnabled()).toBe(false)
+})
+
+test("built-in line shows the routed model and a pending wakeup, nothing otherwise", () => {
+  const now = 1_000_000
+  expect(ForkStatusline.builtin({}, now)).toBe("")
+  expect(ForkStatusline.builtin({ route: { model_id: "claude-sonnet", tier: "standard", kind: "decision" } }, now)).toBe(
+    "router → claude-sonnet · standard",
+  )
+  expect(
+    ForkStatusline.builtin(
+      {
+        route: { model_id: "claude-opus", tier: "deep", kind: "escalation" },
+        wakeup: { due: now + 5 * 60_000, reason: "check CI", repeat: true },
+      },
+      now,
+    ),
+  ).toBe("router → claude-opus · deep (escalation)  ·  loop in 5m: check CI")
+  expect(ForkStatusline.builtin({ wakeup: { due: now + 90 * 60_000, repeat: false } }, now)).toBe("wakeup in 1h30")
+  expect(ForkStatusline.builtin({ wakeup: { due: now - 1, repeat: false } }, now)).toBe("wakeup due")
+  expect(
+    ForkStatusline.builtin({ auto: [{ decision: "allow" }, { decision: "allow" }, { decision: "timeout" }] }, now),
+  ).toBe("auto: 2 approved, 1 asked")
+  expect(ForkStatusline.builtin({ auto: [{ decision: "allow" }] }, now)).toBe("auto: 1 approved")
+  expect(ForkStatusline.builtin({ compaction: { code: "not-boundary" } }, now)).toBe("compaction deferred: task not over")
+  expect(ForkStatusline.builtin({ compaction: { code: "below-threshold" } }, now)).toBe("")
+  expect(ForkStatusline.builtin({ jevPausedUntil: now + 4 * 60_000 }, now)).toBe("Jev failing, paused for 4m")
+})
+
+test("the built-in line says when a window is winding down or closing", () => {
+  const now = 1_000_000
+  const window = { used: 0.88, reset: now + 90 * 60_000 }
+  expect(ForkStatusline.builtin({ window: { state: "wind-down", ...window } }, now)).toBe("winding down: window at 88%, reopens in 1h30")
+  expect(ForkStatusline.builtin({ window: { state: "wrap-up", ...window } }, now)).toContain("closing: window at 88%")
+})

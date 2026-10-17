@@ -1,0 +1,215 @@
+import { ForkFlags } from "./flags"
+import type { ForkJev } from "./jev"
+import { ForkCache } from "./cache"
+import { writeCost, type Price } from "./route"
+
+// When to compact. Upstream compacts at overflow, usually in the middle of a tool loop. This policy
+// decides at the end of an assistant turn (the session is about to go idle), or at the start of the
+// next one when the cache went cold, whether compacting now beats waiting. It is pure: the session
+// glue (session/fork-smart-compaction.ts) gathers the inputs and runs the existing compaction path.
+// Overflow compaction stays the safety net.
+
+export const COMPACT_AT = 0.5
+export const COLD_AT = 0.3
+export const MIN_TURNS = 3
+// Ratios alone never fire on a 1M window: 30% is 300k tokens, and a cache rewrite of 250k costs more than a summary.
+// Telemetry (Oct 2026): 57% of the spend was on calls above 200k tokens and 3 of 679 evaluations compacted. These
+// token ceilings cap the thresholds above; pays() still decides whether the compaction is worth it.
+export const WARM_MAX_TOKENS = 250_000
+export const COLD_MAX_TOKENS = 100_000
+// Estimated size of a summary (output tokens of the summary turn, and its size in the new prefix).
+export const SUMMARY_TOKENS = 2_000
+// The history cache TTL, minus a margin: the compaction rewrites the history, the prefix stays.
+export const WARM_TTL_MS = ForkCache.HISTORY_WARM_MS
+
+// Jev's probability that the exchange closes a task. Below the first value, and while the window is under the
+// second, the compaction waits for a better moment; the overflow compaction stays the safety net.
+export const BOUNDARY_MIN = 0.35
+export const BOUNDARY_OVERRIDE = 0.7
+
+export function enabled() {
+  return ForkFlags.on("SMART_COMPACTION")
+}
+
+export type Settings = { at: number; coldAt: number; minTurns: number }
+
+export function settings(): Settings {
+  return {
+    at: ratio(process.env.OPENCODE_FORK_COMPACT_AT, COMPACT_AT),
+    coldAt: ratio(process.env.OPENCODE_FORK_COMPACT_COLD_AT, COLD_AT),
+    minTurns: count(process.env.OPENCODE_FORK_COMPACT_MIN_TURNS, MIN_TURNS),
+  }
+}
+
+// "0.5" and "50" both mean half of the window.
+function ratio(value: string | undefined, fallback: number) {
+  const parsed = Number(value)
+  if (!value || !Number.isFinite(parsed) || parsed <= 0) return fallback
+  return Math.min(parsed > 1 ? parsed / 100 : parsed, 1)
+}
+
+function count(value: string | undefined, fallback: number) {
+  const parsed = Number(value)
+  return value && Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback
+}
+
+export type Phase = "end" | "start"
+
+export type Input = {
+  // "end": the assistant turn just finished. "start": a new turn is about to call the model.
+  phase: Phase
+  // Tokens of the last request (input + cache read + cache write).
+  context: number
+  // Context window of the model.
+  window: number
+  // Stable prefix that survives a compaction (system prompt, tools, first message), in tokens.
+  base: number
+  // Recent messages a compaction keeps verbatim, in tokens.
+  tail: number
+  // Prices per million tokens, from models.dev.
+  price: Price
+  // Time since the last provider response, and how long the prompt cache lives.
+  idleMs: number
+  ttlMs: number
+  // The last assistant message asked for tools (a loop is running or was interrupted).
+  toolLoop: boolean
+  todos: readonly { status: string }[]
+  // A subagent or a background job of this session is running.
+  background: boolean
+  // The plan agent runs and has not called plan_exit.
+  planMode: boolean
+  // User turns since the last compaction (Infinity when there was none).
+  turnsSince: number
+  // Provider calls expected before the session ends.
+  remaining: number
+  // Probability (Jev) that the exchange that just ended closes a task; undefined when not asked.
+  boundary?: number
+}
+
+export type Code =
+  | "tool-loop"
+  | "background"
+  | "plan-mode"
+  | "recent-compaction"
+  | "no-window"
+  | "warm"
+  | "task-open"
+  | "below-threshold"
+  | "no-price"
+  | "not-worth"
+  | "boundary"
+  | "not-boundary"
+  | "cold-cache"
+
+export type Decision = {
+  compact: boolean
+  code: Code
+  reason: string
+  cold: boolean
+  context: number
+  window: number
+  threshold: number
+  cost: number
+  benefit: number
+}
+
+export function decide(input: Input, cfg: Settings = settings()): Decision {
+  const cold = input.idleMs > input.ttlMs
+  const ceiling = input.window > 0 ? (cold ? COLD_MAX_TOKENS : WARM_MAX_TOKENS) / input.window : 1
+  const threshold = Math.min(cold ? Math.min(cfg.coldAt, cfg.at) : cfg.at, ceiling)
+  const base = { cold, context: input.context, window: input.window, threshold, cost: 0, benefit: 0 }
+  const skip = (code: Code, reason: string, extra: Partial<Decision> = {}): Decision => ({
+    ...base,
+    ...extra,
+    compact: false,
+    code,
+    reason,
+  })
+
+  if (input.toolLoop) return skip("tool-loop", "a tool loop is running")
+  if (input.background) return skip("background", "a subagent or background job of this session is running")
+  if (input.planMode) return skip("plan-mode", "plan mode, before plan_exit")
+  if (input.turnsSince < cfg.minTurns)
+    return skip("recent-compaction", `last compaction ${input.turnsSince} turn(s) ago, minimum ${cfg.minTurns}`)
+  if (input.window <= 0) return skip("no-window", "the model window is unknown")
+  if (input.phase === "start" && !cold) return skip("warm", "warm cache, decided at the end of the turn")
+  const open = input.todos.filter((todo) => todo.status !== "completed").length
+  if (input.phase === "end" && open > 0) return skip("task-open", `${open} todo item(s) still open`)
+
+  const used = input.context / input.window
+  if (used < threshold)
+    return skip(
+      "below-threshold",
+      `${pct(used)} of the window, ${cold ? "cold-cache " : ""}threshold ${pct(threshold)}`,
+    )
+
+  const money = pays(input, cold)
+  const detail = `${pct(used)} of the window, benefit ${usd(money.benefit)} vs cost ${usd(money.cost)}`
+  const figures = { cost: money.cost, benefit: money.benefit }
+  if (money.free) return skip("no-price", "the model has no known price", figures)
+  if (!money.pays) return skip("not-worth", `${detail}: not worth it`, figures)
+  if (!cold && input.boundary !== undefined && input.boundary < BOUNDARY_MIN && used < BOUNDARY_OVERRIDE)
+    return skip("not-boundary", `${detail}: the task is not over (boundary ${input.boundary.toFixed(2)})`, figures)
+  return {
+    ...base,
+    ...figures,
+    compact: true,
+    code: cold ? "cold-cache" : "boundary",
+    reason: cold ? `cold cache, the next turn rewrites the context anyway: ${detail}` : `task boundary: ${detail}`,
+  }
+}
+
+const JEV_USER = 500
+const JEV_REPLY = 1_500
+
+// What Jev reads to say whether the exchange that just ended closes a task.
+export function jevRequest(input: { user: string; reply: string; todos: number }) {
+  return {
+    state: [
+      "Coding-agent turn that just ended; deciding whether this is a good moment to summarise the conversation.",
+      `User's last message:\n${input.user.trim().slice(0, JEV_USER)}`,
+      `End of the agent's reply:\n${input.reply.trim().slice(-JEV_REPLY)}`,
+      `Open todos: ${input.todos}.`,
+    ].join("\n"),
+    questions: {
+      boundary: {
+        type: "noul",
+        instructions: "The exchange closes a task; the next user message will likely start new work",
+      },
+    } satisfies Record<string, ForkJev.Question>,
+  }
+}
+
+// Cost of compacting against what it saves, like downgradePays in route.ts.
+// Warm: the summary turn reads the context from the cache, then the summary and the kept tail are
+// written (the stable prefix stays cached). Cold: the summary reads the context at the input price
+// and the whole new prefix is written, but the next turn would have rewritten the old context.
+export function pays(input: Input, cold: boolean) {
+  const price = input.price
+  const compacted = Math.min(input.context, input.base + SUMMARY_TOKENS + input.tail)
+  const saved = input.context - compacted
+  const million = 1_000_000
+  const summaryTurn = (input.context * (cold ? price.input : price.cacheRead) + SUMMARY_TOKENS * price.output) / million
+  const cost = summaryTurn + writeCost(price, cold ? compacted : Math.max(0, compacted - input.base))
+  const benefit = (saved * price.cacheRead * input.remaining) / million + (cold ? writeCost(price, input.context) : 0)
+  const free = price.input + price.cacheRead + price.output + price.cacheWrite === 0
+  return { cost, benefit, free, pays: benefit > cost }
+}
+
+const MIN_REMAINING = 3
+const MAX_REMAINING = 40
+
+// Provider calls still to come, from how many a user prompt has needed so far.
+export function remainingTurns(prompts: number, calls: number) {
+  return Math.min(MAX_REMAINING, Math.max(MIN_REMAINING, Math.round(calls / Math.max(1, prompts))))
+}
+
+function pct(value: number) {
+  return `${Math.round(value * 100)}%`
+}
+
+function usd(value: number) {
+  return `$${value < 0.01 ? value.toFixed(4) : value.toFixed(2)}`
+}
+
+export * as ForkCompactionTiming from "./compaction-timing"

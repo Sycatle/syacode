@@ -1,0 +1,34 @@
+# Jev (TypeSafe) dans le fork
+
+Jev est un classifieur structuré : un appel porte un `state` (texte) et des questions nommées, `choice` (une option parmi N), `score` (4 niveaux) ou `noul` (probabilité 0..1). Il ne génère jamais de texte. Client partagé : `packages/fork/src/jev.ts`.
+
+## Règles communes
+
+- Rien ne part sans `TYPESAFE_API_KEY`. Avec la clé, chaque usage est actif par défaut, sauf mention contraire dans le tableau.
+- `OPENCODE_FORK_<ZONE>_JEV=0` coupe un usage ; `=shadow` fait tourner Jev à côté de l'ancien chemin, sans décider, et journalise la comparaison.
+- Jev absent, lent (timeout 1,5 s), en 4xx/5xx ou illisible : le comportement d'avant est conservé. Pour une décision de sécurité, le défaut est de demander à l'utilisateur.
+- Chaque appel est journalisé dans `fork_jev` (usage, latence, succès, décision, réponses de Jev). Le `state` envoyé n'est jamais stocké. `opencode usage --jev` résume : appels, taux de succès, p50/p95, décisions, accord avec l'ancien chemin en shadow.
+- Ce que le modèle voit est écrit une seule fois, à la production, jamais calculé au rendu (le préfixe du prompt reste identique d'un tour à l'autre).
+
+## Variables communes
+
+| Variable | Défaut |
+| --- | --- |
+| `TYPESAFE_API_KEY` | absente : tout Jev est inactif |
+| `OPENCODE_FORK_JEV_URL` | `https://api.typesafe.ai` |
+| `OPENCODE_FORK_JEV_MODEL` | `jev-latest` |
+| `OPENCODE_FORK_JEV_TIMEOUT_MS` | `1500` |
+
+## Usages
+
+| Usage | Interrupteur | Déclencheur | Ce qui part à `api.typesafe.ai` |
+| --- | --- | --- | --- |
+| Router | `OPENCODE_FORK_ROUTE_JEV` | nouveau message d'une session `router/auto` | extrait du message (3000 car.), début de la conversation (500 car.), nombre de messages, tokens de contexte approximatifs, noms d'outils (20 max), nom du modèle Jev. Ni fichiers, ni réponses de l'assistant, ni sorties d'outils. |
+| Gate de suggestion | `OPENCODE_FORK_PROMPT_SUGGESTION_JEV` (seuil `_JEV_MIN`, 0,35) | fin de tour assistant, avant l'appel du petit modèle | dernier message utilisateur (800 car.), fin de la dernière réponse de l'assistant (1500 car.), nombre de todos ouvertes. |
+| Hooks `classify` | aucun : l'entrée est explicite dans `hooks` (`OPENCODE_FORK_HOOKS=0` coupe tous les hooks) | événement du hook | le JSON de l'événement (arguments et sorties d'outils compris), tronqué à 3000 car. |
+| `opencode auto` sans `--until` | `OPENCODE_FORK_AUTO_JEV` | fin de chaque run de l'agent, seulement sans `--until` | la tâche (2000 car.) et le dernier message de l'agent (2500 car.). Un `--until` qui échoue l'emporte toujours ; Jev indisponible arrête la boucle (`judge-unavailable`). |
+| Auto-épinglage | `OPENCODE_FORK_PINS_JEV` | compaction (résumé de session) | jusqu'à 6 messages utilisateur récents d'au moins 40 car. (800 car. chacun) non épinglés. Au plus 3 épinglés par compaction, 8 par session (marqués `auto` dans `fork_pins`). Taille de lot provisoire : la limite de questions par appel de l'API n'est pas mesurée. |
+| Veto de compaction | `OPENCODE_FORK_SMART_COMPACTION_JEV` | fin de tour, seulement quand la politique voudrait compacter à une « frontière de tâche » (jamais à cache froid) | dernier message utilisateur (500 car.), fin de la dernière réponse (1500 car.), nombre de todos ouvertes. Jev ne peut que retarder (sous 0,35 de probabilité de frontière tant que la fenêtre est sous 70 %) ; le dépassement de fenêtre reste le filet. |
+| Prune (opt-in) | `OPENCODE_FORK_PRUNE_JEV=1` (`shadow` pour mesurer) | lot de sorties d'outils sur le point d'être effacé (fiber en arrière-plan) | les 20 plus grosses sorties du lot : outil, titre, 300 premiers caractères, plus la demande en cours (600 car.). **Du contenu de fichiers et de commandes quitte la machine.** Jev épargne au plus un quart du lot, à 0,8 ou plus, tant qu'il reste de quoi élaguer. |
+| Préchargement d'outils (opt-in) | `OPENCODE_FORK_DEFER_TOOLS_JEV=1` | premier pas d'un message, seulement à un démarrage, après une compaction ou cache expiré | la demande (1500 car.) et jusqu'à 5 outils différés correspondants (nom + 200 car. de description). Jev précharge à 0,8 ou plus. |
+| Détection d'injection | `OPENCODE_FORK_INJECTION_JEV` (webfetch) ; `OPENCODE_FORK_INJECTION_MCP_JEV=1` (outils MCP, opt-in) | fin d'un `webfetch` / d'un outil MCP, sorties d'au moins 200 car. | les 3000 premiers caractères de la sortie de l'outil, c'est-à-dire du contenu web ou de serveurs MCP. Au-delà de 0,7, un avertissement fixe est ajouté en tête de la sortie ; une panne Jev laisse la sortie telle quelle. |
