@@ -235,7 +235,7 @@ const layer = Layer.effect(
           tools: loaded.tools,
           system: transcript.system,
           messages: stepLimitReached
-            ? [...transcript.messages, Message.assistant(MAX_STEPS_PROMPT)]
+            ? [...transcript.messages, Message.user(MAX_STEPS_PROMPT)]
             : transcript.messages,
           // Keep tool definitions on the final Step to preserve the provider's cached prefix.
           toolChoice: stepLimitReached ? "none" : undefined,

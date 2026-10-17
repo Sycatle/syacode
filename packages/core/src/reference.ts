@@ -85,6 +85,10 @@ const layer = Layer.effect(
               refresh: "daily",
             })
           }).pipe(
+            // A fetch only runs against an existing checkout, so the stale cache stays usable.
+            Effect.catchTag("RepositoryCacheFetchFailedError", (error) =>
+              Effect.logInfo("reference cache is stale, refresh failed", { name: reference.name, error: error.message }),
+            ),
             Effect.catchCause((cause) =>
               Effect.logWarning("failed to materialize reference", { name: reference.name, cause }),
             ),

@@ -709,7 +709,12 @@ export const layer = (options?: Options) =>
           if (!target.entry.client) return undefined
           const result = yield* recovering(target.name, target.entry, target.entry.client, (connection) =>
             connection.prompt({ name: input.name, args: input.args }),
-          ).pipe(Effect.orElseSucceed(() => undefined))
+          ).pipe(
+            Effect.tapError((error) =>
+              Effect.logError("failed to getPrompt", { server: target.name, name: input.name, error }),
+            ),
+            Effect.orElseSucceed(() => undefined),
+          )
           if (!result) return undefined
           return { ...result, server: target.name, name: input.name }
         }),

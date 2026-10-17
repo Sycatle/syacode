@@ -229,8 +229,14 @@ export const connect = Effect.fnUntraced(function* (
     reported: false,
   }
   const failure = (error: unknown) => {
-    if (!(error instanceof SdkHttpError) || session.transport?.sessionId === undefined) return new Error(explain(error))
+    if (!(error instanceof SdkHttpError)) return new Error(explain(error))
+    // rmcp answers 422 "expect initialize request" to a request sent without a session id, which means the
+    // server no longer knows this connection; unlike 404/400 it is expiry even when the transport has no id.
+    const uninitialized =
+      error.status === 422 && typeof error.data.text === "string" && error.data.text.includes("expect initialize request")
+    if (session.transport?.sessionId === undefined && !uninitialized) return new Error(explain(error))
     const expired =
+      uninitialized ||
       error.status === 404 ||
       (error.status === 400 &&
         typeof error.data.text === "string" &&
