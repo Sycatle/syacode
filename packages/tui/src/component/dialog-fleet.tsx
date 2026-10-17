@@ -3,9 +3,8 @@ import path from "path"
 import { useDialog } from "../ui/dialog"
 import { DialogSelect } from "../ui/dialog-select"
 import { useRoute } from "../context/route"
-import { useSDK } from "../context/sdk"
+import { switchDirectory, useSDK } from "../context/sdk"
 import { useTheme } from "../context/theme"
-import { useToast } from "../ui/toast"
 import { Locale } from "../util/locale"
 import { Spinner } from "./spinner"
 
@@ -14,10 +13,11 @@ export function DialogFleet() {
   const dialog = useDialog()
   const route = useRoute()
   const sdk = useSDK()
-  const toast = useToast()
   const { theme } = useTheme()
 
-  const [fleet, { refetch }] = createResource(async () => (await sdk.client.fork.sessions({ roots: "true" })).data ?? [])
+  const [fleet, { refetch }] = createResource(
+    async () => (await sdk.client.fork.sessions({ roots: "true" })).data ?? [],
+  )
   const timer = setInterval(() => void refetch(), 3000)
   onCleanup(() => clearInterval(timer))
   onMount(() => dialog.setSize("large"))
@@ -47,15 +47,8 @@ export function DialogFleet() {
       onSelect={(option) => {
         const session = fleet()?.find((entry) => entry.session.id === option.value)?.session
         if (!session) return
-        // The TUI is bound to one directory (new prompts would run there), so another directory needs its own client.
-        if (session.directory !== sdk.directory) {
-          toast.show({
-            variant: "info",
-            title: "Other directory",
-            message: `cd ${session.directory} && syacode -s ${session.id}`,
-          })
-          return
-        }
+        // Another directory gets its own client: the app tree is remounted below the route, which is kept.
+        if (session.directory !== sdk.directory) switchDirectory(session.directory)
         route.navigate({ type: "session", sessionID: session.id })
         dialog.clear()
       }}
