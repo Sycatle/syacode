@@ -14,6 +14,8 @@ import { Command } from "../command.js"
 import { Config } from "../config.js"
 import { Credential } from "../credential.js"
 import { llmClient } from "../effect/app-node-platform.js"
+import { ForkHooksPlugin } from "./fork-hooks.js"
+import { ForkSandboxPlugin } from "./fork-sandbox.js"
 import { ConfigAgentPlugin } from "../config/plugin/agent.js"
 import { ConfigCommandPlugin } from "../config/plugin/command.js"
 import { ConfigCompactionPlugin } from "../config/plugin/compaction.js"
@@ -247,6 +249,10 @@ const pre = [
   WebSearchTool.Plugin,
   WriteTool.Plugin,
   WarmingPlugin.Plugin,
+  // FORK-SEAM: hooks-plugin
+  ForkHooksPlugin.Plugin,
+  // FORK-SEAM: sandbox
+  ForkSandboxPlugin.Plugin,
 ] as const satisfies readonly InternalPlugin[]
 
 const post = [

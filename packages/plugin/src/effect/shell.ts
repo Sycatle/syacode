@@ -6,6 +6,8 @@ export interface ShellCreateBefore {
   timeout: number
   shell: string
   env: Record<string, string | undefined>
+  /** `false` when the caller asked to run outside the OS sandbox (already approved by the shell tool). */
+  readonly sandbox?: boolean
 }
 
 export interface ShellHooks {

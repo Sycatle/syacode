@@ -6,6 +6,7 @@ import type { SessionHooks } from "@opencode/plugin/effect/session"
 import type { ShellCreateBefore } from "@opencode/plugin/effect/shell"
 import type { Tool } from "@opencode/schema/tool"
 import { Deferred, Effect, Schema, Scope } from "effect"
+import { ForkSandbox } from "@opencode-fork/core/sandbox"
 import { Config } from "../../config.js"
 import { Environment } from "../../environment/index.js"
 import { Job } from "../../job.js"
@@ -46,6 +47,8 @@ const description = (shell?: string) =>
   ].join(" ")
 
 export const Input = Schema.Struct({
+  // FORK-SEAM: sandbox
+  sandbox: Schema.optionalKey(Schema.Boolean).annotate({ description: ForkSandbox.ESCAPE_PARAM_DESCRIPTION }),
   command: Schema.String.annotate({ description: "Shell command string to execute" }),
   workdir: Schema.optionalKey(Schema.String).annotate({
     description:
@@ -134,6 +137,16 @@ export const Plugin = {
         }),
       )
       yield* access.authorizeExternal([target, ...directories], context)
+      // FORK-SEAM: sandbox (leaving the sandbox is never remembered: `save` stays empty)
+      if (invocation.sandbox === false && ForkSandbox.enabled(Config.latest(yield* config.entries(), "sandbox")))
+        yield* permission.assert({
+          action: ForkSandbox.ESCAPE_PERMISSION,
+          resources: [invocation.command],
+          save: [],
+          sessionID: context.sessionID,
+          agent: context.agent,
+          source,
+        })
       if (parsed.commands.length > 0)
         yield* permission.assert({
           action: name,
@@ -205,6 +218,7 @@ export const Plugin = {
                   command: input.command,
                   cwd: input.workdir,
                   timeout,
+                  sandbox: input.sandbox,
                   shell: yield* compatibleShell,
                   metadata: { sessionID: context.sessionID },
                 },
