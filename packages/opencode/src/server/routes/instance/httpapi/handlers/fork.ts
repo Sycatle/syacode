@@ -3,6 +3,9 @@ import { ForkPromptSuggestion } from "@opencode-fork/core/prompt-suggestion"
 import { ForkQuota } from "@opencode-fork/core/quota"
 import { ForkSummary } from "@opencode-fork/core/summary"
 import { ForkTelemetry } from "@opencode-fork/core/telemetry"
+import { ForkFleet } from "@/session/fork-fleet"
+import { Session } from "@/session/session"
+import type { SessionID } from "@/session/schema"
 import { Effect } from "effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { InstanceHttpApi } from "../api"
@@ -10,8 +13,41 @@ import { InstanceHttpApi } from "../api"
 // FORK-SEAM: fork-api
 
 export const forkHandlers = HttpApiBuilder.group(InstanceHttpApi, "fork", (handlers) =>
-  Effect.succeed(
-    handlers
+  Effect.gen(function* () {
+    const sessions = yield* Session.Service
+    return handlers
+      .handle("fleet", (ctx) =>
+        Effect.gen(function* () {
+          const live = ForkFleet.list()
+          const running = live.size
+            ? yield* sessions.listGlobal({
+                ids: [...live.keys()] as SessionID[],
+                roots: ctx.query.roots,
+                archived: ctx.query.archived,
+                limit: live.size,
+              })
+            : []
+          const recent =
+            ctx.query.active
+              ? []
+              : yield* sessions.listGlobal({
+                  roots: ctx.query.roots,
+                  archived: ctx.query.archived,
+                  search: ctx.query.search,
+                  limit: ctx.query.limit ?? 100,
+                })
+          const known = new Set<string>(running.map((session) => session.id))
+          return [...running, ...recent.filter((session) => !known.has(session.id))]
+            .map((session) => {
+              const entry = live.get(session.id)
+              return { session, status: entry?.status ?? "idle", waiting: entry?.waiting.size ?? 0 }
+            })
+            .sort(
+              (a, b) =>
+                rank(a) - rank(b) || b.session.time.updated - a.session.time.updated,
+            )
+        }),
+      )
       .handle("suggestion", (ctx) =>
         Effect.sync(() => {
           const enabled = ForkPromptSuggestion.enabled() && ForkPromptSuggestion.userEnabled()
@@ -40,6 +76,12 @@ export const forkHandlers = HttpApiBuilder.group(InstanceHttpApi, "fork", (handl
             budget: { usd: ForkBudget.limit(), window: ForkBudget.windowLimit() },
           }
         }),
-      ),
-  ),
+      )
+  }),
 )
+
+// Waiting on the user first, then running, then the rest.
+function rank(entry: { status: string; waiting: number }) {
+  if (entry.waiting > 0) return 0
+  return entry.status === "idle" ? 2 : 1
+}

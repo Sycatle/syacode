@@ -1,10 +1,16 @@
+import { Session } from "@/session/session"
 import { SessionID } from "@/session/schema"
 import { Schema } from "effect"
 import { HttpApi, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
 import { Authorization } from "../middleware/authorization"
 import { InstanceContextMiddleware } from "../middleware/instance-context"
-import { WorkspaceRoutingMiddleware, WorkspaceRoutingQuery } from "../middleware/workspace-routing"
+import {
+  WorkspaceRoutingMiddleware,
+  WorkspaceRoutingQuery,
+  WorkspaceRoutingQueryFields,
+} from "../middleware/workspace-routing"
 import { described } from "./metadata"
+import { QueryBoolean } from "./query"
 
 // FORK-SEAM: fork-api (read-only fork data for the web client, see docs/fork/seams.md)
 
@@ -62,7 +68,25 @@ const ForkSuggestionResponse = Schema.Struct({
   text: Schema.optional(Schema.String),
 }).annotate({ identifier: "ForkSuggestion" })
 
+const ForkFleetQuery = Schema.Struct({
+  ...WorkspaceRoutingQueryFields,
+  roots: Schema.optional(QueryBoolean),
+  active: Schema.optional(QueryBoolean),
+  archived: Schema.optional(QueryBoolean),
+  search: Schema.optional(Schema.String),
+  limit: Schema.optional(Schema.NumberFromString),
+})
+
+const ForkFleetEntry = Schema.Struct({
+  session: Session.GlobalInfo,
+  // "idle" for a session that is not running, "busy" or "retry" while a turn is in progress
+  status: Schema.String,
+  // permission and question requests waiting on the user
+  waiting: Schema.Finite,
+}).annotate({ identifier: "ForkFleetEntry" })
+
 export const ForkPaths = {
+  fleet: "/fork/sessions",
   usage: "/fork/session/:sessionID/usage",
   suggestion: "/fork/session/:sessionID/suggestion",
 } as const
@@ -71,6 +95,17 @@ export const ForkApi = HttpApi.make("fork")
   .add(
     HttpApiGroup.make("fork")
       .add(
+        HttpApiEndpoint.get("fleet", ForkPaths.fleet, {
+          query: ForkFleetQuery,
+          success: described(Schema.Array(ForkFleetEntry), "Sessions across every directory"),
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "fork.sessions",
+            summary: "List sessions across directories",
+            description:
+              "List the running sessions of every directory first (waiting on the user before busy), then the most recently updated ones. active=true keeps only running sessions.",
+          }),
+        ),
         HttpApiEndpoint.get("usage", ForkPaths.usage, {
           params: { sessionID: SessionID },
           query: WorkspaceRoutingQuery,

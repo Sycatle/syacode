@@ -595,6 +595,13 @@ const scenarios: Scenario[] = [
     }),
   http.protected.get("/experimental/resource", "experimental.resource.list").json(),
   http.protected
+    .get("/fork/sessions", "fork.sessions")
+    .seeded((ctx) => ctx.session({ title: "Fork fleet owner" }))
+    .at((ctx) => ({ path: "/fork/sessions", headers: ctx.headers() }))
+    .json(200, (body) => {
+      check(Array.isArray(body) && body.every((item) => "session" in item && "status" in item), "fleet should list sessions with a status")
+    }),
+  http.protected
     .get("/fork/session/{sessionID}/usage", "fork.session.usage")
     .seeded((ctx) => ctx.session({ title: "Fork usage owner" }))
     .at((ctx) => ({

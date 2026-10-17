@@ -778,6 +778,12 @@ const layer = Layer.effect(
             error: error instanceof Error ? error.message : String(error),
           }),
         ),
+        // FORK-SEAM: mcp-expired-session (a remote server that lost our session answers 422 "expect initialize request" until we reconnect)
+        Effect.tapError((error) =>
+          error instanceof Error && error.message.includes("expect initialize request")
+            ? connect(clientName).pipe(Effect.ignore)
+            : Effect.void,
+        ),
         Effect.orElseSucceed(() => undefined),
       )
     })

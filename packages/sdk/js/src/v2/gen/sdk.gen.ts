@@ -74,6 +74,8 @@ import type {
   FindSymbolsResponses,
   FindTextErrors,
   FindTextResponses,
+  ForkSessionsErrors,
+  ForkSessionsResponses,
   ForkSessionSuggestionErrors,
   ForkSessionSuggestionResponses,
   ForkSessionUsageErrors,
@@ -90,6 +92,12 @@ import type {
   GlobalEventResponses,
   GlobalHealthErrors,
   GlobalHealthResponses,
+  GlobalPushKeyErrors,
+  GlobalPushKeyResponses,
+  GlobalPushSubscribeErrors,
+  GlobalPushSubscribeResponses,
+  GlobalPushUnsubscribeErrors,
+  GlobalPushUnsubscribeResponses,
   GlobalUpgradeErrors,
   GlobalUpgradeResponses,
   InstanceDisposeErrors,
@@ -1319,6 +1327,86 @@ export class Config extends HeyApiClient {
   }
 }
 
+export class Push extends HeyApiClient {
+  /**
+   * Get Web Push public key
+   *
+   * Return the VAPID public key a browser needs to subscribe to Web Push notifications.
+   */
+  public key<ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>) {
+    return (options?.client ?? this.client).get<GlobalPushKeyResponses, GlobalPushKeyErrors, ThrowOnError>({
+      url: "/global/push/key",
+      ...options,
+    })
+  }
+
+  /**
+   * Remove a Web Push subscription
+   *
+   * Stop sending notifications to the given push endpoint.
+   */
+  public unsubscribe<ThrowOnError extends boolean = false>(
+    parameters?: {
+      endpoint?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "body", key: "endpoint" }] }])
+    return (options?.client ?? this.client).delete<
+      GlobalPushUnsubscribeResponses,
+      GlobalPushUnsubscribeErrors,
+      ThrowOnError
+    >({
+      url: "/global/push/subscription",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Register a Web Push subscription
+   *
+   * Store a browser push subscription. The server notifies it when a session finishes, fails, or waits for a permission or question.
+   */
+  public subscribe<ThrowOnError extends boolean = false>(
+    parameters?: {
+      endpoint?: string
+      keys?: {
+        p256dh: string
+        auth: string
+      }
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "body", key: "endpoint" },
+            { in: "body", key: "keys" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).put<GlobalPushSubscribeResponses, GlobalPushSubscribeErrors, ThrowOnError>({
+      url: "/global/push/subscription",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+}
+
 export class Global extends HeyApiClient {
   /**
    * Get health
@@ -1383,6 +1471,11 @@ export class Global extends HeyApiClient {
   private _config?: Config
   get config(): Config {
     return (this._config ??= new Config({ client: this.client }))
+  }
+
+  private _push?: Push
+  get push(): Push {
+    return (this._push ??= new Push({ client: this.client }))
   }
 }
 
@@ -1797,6 +1890,46 @@ export class Session2 extends HeyApiClient {
 }
 
 export class Fork extends HeyApiClient {
+  /**
+   * List sessions across directories
+   *
+   * List the running sessions of every directory first (waiting on the user before busy), then the most recently updated ones. active=true keeps only running sessions.
+   */
+  public sessions<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      roots?: "true" | "false"
+      active?: "true" | "false"
+      archived?: "true" | "false"
+      search?: string
+      limit?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "roots" },
+            { in: "query", key: "active" },
+            { in: "query", key: "archived" },
+            { in: "query", key: "search" },
+            { in: "query", key: "limit" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<ForkSessionsResponses, ForkSessionsErrors, ThrowOnError>({
+      url: "/fork/sessions",
+      ...options,
+      ...params,
+    })
+  }
+
   private _session?: Session2
   get session(): Session2 {
     return (this._session ??= new Session2({ client: this.client }))

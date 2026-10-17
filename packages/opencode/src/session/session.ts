@@ -312,6 +312,7 @@ export type ListInput = {
 
 export type GlobalListInput = {
   directory?: string
+  ids?: SessionID[]
   roots?: boolean
   start?: number
   cursor?: number
@@ -555,6 +556,8 @@ const layer: Layer.Layer<
     const listGlobal = Effect.fn("Session.listGlobal")(function* (input?: GlobalListInput) {
       const conditions: SQL[] = []
       if (input?.directory) conditions.push(eq(SessionTable.directory, input.directory))
+      // FORK-SEAM: fork-fleet (fetch the sessions the fleet registry reports as running)
+      if (input?.ids) conditions.push(inArray(SessionTable.id, input.ids))
       if (input?.roots) conditions.push(isNull(SessionTable.parent_id))
       if (input?.start) conditions.push(gte(SessionTable.time_updated, input.start))
       if (input?.cursor) conditions.push(lt(SessionTable.time_updated, input.cursor))
