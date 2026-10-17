@@ -323,7 +323,8 @@ function ModelSelectorPopoverV2View(props: {
       setStore({ open: true, active: initialActive() })
       setTimeout(() =>
         requestAnimationFrame(() => {
-          searchRef?.focus()
+          // A focused search field raises the on-screen keyboard over the bottom sheet on touch devices.
+          if (!matchMedia("(pointer: coarse)").matches) searchRef?.focus()
           activeItem()?.scrollIntoView({ block: "nearest" })
         }),
       )
@@ -378,19 +379,20 @@ function ModelSelectorPopoverV2View(props: {
       <MenuV2.Portal>
         <MenuV2.Content
           ref={(element: HTMLDivElement) => (contentRef = element)}
+          data-slot="model-selector"
           class="w-[284px] overflow-hidden rounded-md border-0 bg-v2-background-bg-layer-01 !p-0 shadow-[var(--v2-elevation-floating)] focus:outline-none"
           onPointerDownOutside={dismiss.preventTriggerRestore}
           onFocusOutside={dismiss.preventTriggerRestore}
           onCloseAutoFocus={dismiss.onCloseAutoFocus}
         >
           <div class="flex flex-col p-0.5">
-            <div class="flex h-7 items-center gap-2 rounded-sm pl-3 pr-2.5 text-v2-icon-icon-muted">
+            <div class="flex h-7 items-center gap-2 rounded-sm pl-3 pr-2.5 text-v2-icon-icon-muted max-md:h-11">
               <Icon name="magnifying-glass" size="small" class="shrink-0" />
               <input
                 ref={(el) => (searchRef = el)}
                 value={store.search}
                 placeholder={language.t("dialog.model.search.placeholder")}
-                class="h-7 min-w-0 flex-1 border-0 bg-transparent text-[13px] font-[440] leading-5 tracking-[-0.04px] text-v2-text-text-base outline-none placeholder:text-v2-text-text-faint"
+                class="h-7 max-md:h-11 min-w-0 flex-1 border-0 bg-transparent text-[13px] font-[440] leading-5 tracking-[-0.04px] text-v2-text-text-base outline-none placeholder:text-v2-text-text-faint"
                 spellcheck={false}
                 autocorrect="off"
                 autocomplete="off"
@@ -426,7 +428,7 @@ function ModelSelectorPopoverV2View(props: {
               <Show when={store.search.trim()}>
                 <button
                   type="button"
-                  class="flex size-5 items-center justify-center rounded-sm text-v2-icon-icon-muted hover:bg-v2-overlay-simple-overlay-hover"
+                  class="flex size-5 items-center justify-center rounded-sm text-v2-icon-icon-muted hover:bg-v2-overlay-simple-overlay-hover max-md:size-9"
                   onPointerDown={(event) => event.preventDefault()}
                   onClick={() => setSearch("")}
                   aria-label={language.t("common.clear")}

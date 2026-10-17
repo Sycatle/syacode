@@ -5,8 +5,11 @@ import { resolveThemeVariantV2 } from "@opencode-ai/ui/theme/v2/resolve"
 import type { HexColor, ResolvedV2Theme } from "@opencode-ai/ui/theme/types"
 import { showToast } from "@/utils/toast"
 import type { FitAddon, Ghostty, Terminal as Term } from "ghostty-web"
-import { type ComponentProps, createEffect, createMemo, onCleanup, onMount, splitProps } from "solid-js"
+import { createMediaQuery } from "@solid-primitives/media"
+import { type ComponentProps, createEffect, createMemo, onCleanup, onMount, Show, splitProps } from "solid-js"
+import { createStore } from "solid-js/store"
 import { SerializeAddon } from "@/addons/serialize"
+import { TerminalKeys } from "@/components/terminal-keys"
 import { matchKeybind, parseKeybind } from "@/context/command"
 import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
@@ -15,6 +18,7 @@ import { useServerSDK } from "@/context/server-sdk"
 import { terminalFontFamily, useSettings } from "@/context/settings"
 import type { LocalPTY } from "@/context/terminal"
 import { disposeIfDisposable, getHoveredLinkText, setOptionIfSupported } from "@/utils/runtime-adapters"
+import { ctrlSequence } from "@/utils/terminal-keys"
 import { terminalWriter } from "@/utils/terminal-writer"
 import { terminalWebSocketURL } from "@/utils/terminal-websocket-url"
 
@@ -185,6 +189,9 @@ export const Terminal = (props: TerminalProps) => {
   const authToken = connection.type === "http" ? connection.authToken : false
   const sameOrigin = new URL(url, location.href).origin === location.origin
   let container!: HTMLDivElement
+  const touch = createMediaQuery("(pointer: coarse)")
+  // Ctrl on the key bar is sticky: it modifies the next character typed, then clears.
+  const [keys, setKeys] = createStore({ ctrl: false })
   const [local, others] = splitProps(props, [
     "pty",
     "class",
@@ -483,7 +490,9 @@ export const Terminal = (props: TerminalProps) => {
       })
       cleanups.push(() => disposeIfDisposable(onResize))
       const onData = t.onData((data) => {
-        if (ws?.readyState === WebSocket.OPEN) ws.send(data)
+        const sequence = keys.ctrl ? ctrlSequence(data) : undefined
+        if (keys.ctrl) setKeys("ctrl", false)
+        if (ws?.readyState === WebSocket.OPEN) ws.send(sequence ?? data)
       })
       cleanups.push(() => disposeIfDisposable(onData))
       const onKey = t.onKey((key) => {
@@ -737,21 +746,32 @@ export const Terminal = (props: TerminalProps) => {
     output.flush(finalize)
   })
 
+  // Without the key bar the wrapper is `contents`, so the layout is the same as before it existed.
   return (
-    <div
-      ref={container}
-      data-component="terminal"
-      dir="ltr"
-      data-prevent-autofocus
-      tabIndex={-1}
-      style={{ "background-color": terminalColors().background }}
-      classList={{
-        ...local.classList,
-        "select-text": true,
-        "size-full px-6 py-3 font-mono relative overflow-hidden": true,
-        [local.class ?? ""]: !!local.class,
-      }}
-      {...others}
-    />
+    <div classList={{ "flex size-full flex-col": touch(), contents: !touch() }}>
+      <div
+        ref={container}
+        data-component="terminal"
+        dir="ltr"
+        data-prevent-autofocus
+        tabIndex={-1}
+        style={{ "background-color": terminalColors().background }}
+        classList={{
+          ...local.classList,
+          "select-text": true,
+          "size-full px-6 py-3 font-mono relative overflow-hidden": true,
+          "min-h-0 flex-1": touch(),
+          [local.class ?? ""]: !!local.class,
+        }}
+        {...others}
+      />
+      <Show when={touch()}>
+        <TerminalKeys
+          ctrl={keys.ctrl}
+          onCtrl={() => setKeys("ctrl", (value) => !value)}
+          onKey={(data) => term?.input(data, true)}
+        />
+      </Show>
+    </div>
   )
 }

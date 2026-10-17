@@ -32,7 +32,7 @@ import { PluginRouteMissing } from "./component/plugin-route-missing"
 import { ProjectProvider, useProject } from "./context/project"
 import { EditorContextProvider } from "./context/editor"
 import { useEvent } from "./context/event"
-import { SDKProvider, useSDK } from "./context/sdk"
+import { SDKProvider, directoryOverride, useSDK } from "./context/sdk"
 import { StartupLoading } from "./component/startup-loading"
 import { SyncProvider, useSync } from "./context/sync"
 import { DataProvider } from "./context/data"
@@ -50,6 +50,7 @@ import { DialogThemeList } from "./component/dialog-theme-list"
 import { DialogHelp } from "./ui/dialog-help"
 import { DialogAgent } from "./component/dialog-agent"
 import { DialogSessionList } from "./component/dialog-session-list"
+import { DialogFleet } from "./component/dialog-fleet"
 import { DialogWorkspaceList } from "./component/dialog-workspace-list"
 import { DialogConsoleOrg } from "./component/dialog-console-org"
 import { ThemeProvider, useTheme } from "./context/theme"
@@ -298,44 +299,46 @@ export const run = Effect.fn("Tui.run")(function* (input: TuiInput) {
                                   >
                                     <TuiConfigProvider config={input.config}>
                                       <PluginRuntimeProvider value={pluginRuntime}>
-                                        <SDKProvider
-                                          url={input.url}
-                                          directory={input.directory}
-                                          fetch={input.fetch}
-                                          headers={input.headers}
-                                          events={input.events}
-                                        >
-                                          <PermissionProvider>
-                                            <ProjectProvider>
-                                              <SyncProvider>
-                                                <DataProvider>
-                                                  <ThemeProvider mode={mode}>
-                                                    <LocalProvider>
-                                                      <PromptStashProvider>
-                                                        <DialogProvider>
-                                                          <FrecencyProvider>
-                                                            <PromptHistoryProvider>
-                                                              <PromptRefProvider>
-                                                                <EditorContextProvider>
-                                                                  <LocationProvider>
-                                                                    <App
-                                                                      onSnapshot={input.onSnapshot}
-                                                                      pluginHost={input.pluginHost}
-                                                                    />
-                                                                  </LocationProvider>
-                                                                </EditorContextProvider>
-                                                              </PromptRefProvider>
-                                                            </PromptHistoryProvider>
-                                                          </FrecencyProvider>
-                                                        </DialogProvider>
-                                                      </PromptStashProvider>
-                                                    </LocalProvider>
-                                                  </ThemeProvider>
-                                                </DataProvider>
-                                              </SyncProvider>
-                                            </ProjectProvider>
-                                          </PermissionProvider>
-                                        </SDKProvider>
+                                        <Show when={directoryOverride() ?? input.directory ?? process.cwd()} keyed>
+                                          <SDKProvider
+                                            url={input.url}
+                                            directory={directoryOverride() ?? input.directory}
+                                            fetch={input.fetch}
+                                            headers={input.headers}
+                                            events={input.events}
+                                          >
+                                            <PermissionProvider>
+                                              <ProjectProvider>
+                                                <SyncProvider>
+                                                  <DataProvider>
+                                                    <ThemeProvider mode={mode}>
+                                                      <LocalProvider>
+                                                        <PromptStashProvider>
+                                                          <DialogProvider>
+                                                            <FrecencyProvider>
+                                                              <PromptHistoryProvider>
+                                                                <PromptRefProvider>
+                                                                  <EditorContextProvider>
+                                                                    <LocationProvider>
+                                                                      <App
+                                                                        onSnapshot={input.onSnapshot}
+                                                                        pluginHost={input.pluginHost}
+                                                                      />
+                                                                    </LocationProvider>
+                                                                  </EditorContextProvider>
+                                                                </PromptRefProvider>
+                                                              </PromptHistoryProvider>
+                                                            </FrecencyProvider>
+                                                          </DialogProvider>
+                                                        </PromptStashProvider>
+                                                      </LocalProvider>
+                                                    </ThemeProvider>
+                                                  </DataProvider>
+                                                </SyncProvider>
+                                              </ProjectProvider>
+                                            </PermissionProvider>
+                                          </SDKProvider>
+                                        </Show>
                                       </PluginRuntimeProvider>
                                     </TuiConfigProvider>
                                   </RouteProvider>
@@ -597,6 +600,17 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
         slashAliases: ["resume", "continue"],
         run: () => {
           dialog.replace(() => <DialogSessionList />)
+        },
+      },
+      {
+        // FORK-SEAM: fork-fleet-tui
+        name: "session.fleet",
+        title: "Sessions in all directories",
+        category: "Session",
+        slashName: "fleet",
+        slashAliases: ["running", "all"],
+        run: () => {
+          dialog.replace(() => <DialogFleet />)
         },
       },
       {

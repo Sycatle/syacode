@@ -7,6 +7,7 @@ import { createHomeScrollController } from "./home/home-scroll-controller"
 import { createHomeSessionSearchController } from "./home/home-session-search-controller"
 import { createHomeSessionsController } from "./home/home-sessions-controller"
 import { HomeSessions } from "./home/home-sessions"
+import { HomeFleet } from "./home/home-fleet"
 
 export function NewHome() {
   const home = createHomeController()
@@ -36,7 +37,14 @@ export function NewHome() {
           `}
         >
           <HomeProjects projects={projects} scroll={scroll} />
-          <HomeSessions sessions={sessions} search={search} scroll={scroll} />
+          <div class="flex min-h-0 min-w-0 flex-col">
+            <HomeFleet
+              client={() => home.server.focusedContext()?.sdk.client}
+              server={() => home.selection.value().server}
+              onOpen={sessions.session.open}
+            />
+            <HomeSessions sessions={sessions} search={search} scroll={scroll} />
+          </div>
           <HomeUtilityNav
             class="flex lg:hidden"
             onOpenSettings={projects.utility.settings}

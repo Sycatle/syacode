@@ -2262,6 +2262,12 @@ export type McpResource = {
   client: string
 }
 
+export type ForkFleetEntry = {
+  session: GlobalSession
+  status: string
+  waiting: number
+}
+
 export type ForkUsage = {
   turns: number
   cost: number
@@ -7493,6 +7499,91 @@ export type GlobalUpgradeResponses = {
 
 export type GlobalUpgradeResponse = GlobalUpgradeResponses[keyof GlobalUpgradeResponses]
 
+export type GlobalPushKeyData = {
+  body?: never
+  path?: never
+  query?: never
+  url: "/global/push/key"
+}
+
+export type GlobalPushKeyErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type GlobalPushKeyError = GlobalPushKeyErrors[keyof GlobalPushKeyErrors]
+
+export type GlobalPushKeyResponses = {
+  /**
+   * Web Push public key
+   */
+  200: {
+    publicKey: string
+  }
+}
+
+export type GlobalPushKeyResponse = GlobalPushKeyResponses[keyof GlobalPushKeyResponses]
+
+export type GlobalPushUnsubscribeData = {
+  body?: {
+    endpoint: string
+  }
+  path?: never
+  query?: never
+  url: "/global/push/subscription"
+}
+
+export type GlobalPushUnsubscribeErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type GlobalPushUnsubscribeError = GlobalPushUnsubscribeErrors[keyof GlobalPushUnsubscribeErrors]
+
+export type GlobalPushUnsubscribeResponses = {
+  /**
+   * Subscription removed
+   */
+  200: boolean
+}
+
+export type GlobalPushUnsubscribeResponse = GlobalPushUnsubscribeResponses[keyof GlobalPushUnsubscribeResponses]
+
+export type GlobalPushSubscribeData = {
+  body?: {
+    endpoint: string
+    keys: {
+      p256dh: string
+      auth: string
+    }
+  }
+  path?: never
+  query?: never
+  url: "/global/push/subscription"
+}
+
+export type GlobalPushSubscribeErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type GlobalPushSubscribeError = GlobalPushSubscribeErrors[keyof GlobalPushSubscribeErrors]
+
+export type GlobalPushSubscribeResponses = {
+  /**
+   * Subscription stored
+   */
+  200: boolean
+}
+
+export type GlobalPushSubscribeResponse = GlobalPushSubscribeResponses[keyof GlobalPushSubscribeResponses]
+
 export type EventSubscribeData = {
   body?: never
   path?: never
@@ -7995,6 +8086,39 @@ export type ExperimentalResourceListResponses = {
 
 export type ExperimentalResourceListResponse =
   ExperimentalResourceListResponses[keyof ExperimentalResourceListResponses]
+
+export type ForkSessionsData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+    roots?: "true" | "false"
+    active?: "true" | "false"
+    archived?: "true" | "false"
+    search?: string
+    limit?: string
+  }
+  url: "/fork/sessions"
+}
+
+export type ForkSessionsErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ForkSessionsError = ForkSessionsErrors[keyof ForkSessionsErrors]
+
+export type ForkSessionsResponses = {
+  /**
+   * Sessions across every directory
+   */
+  200: Array<ForkFleetEntry>
+}
+
+export type ForkSessionsResponse = ForkSessionsResponses[keyof ForkSessionsResponses]
 
 export type ForkSessionUsageData = {
   body?: never

@@ -2,11 +2,14 @@ import { createOpencodeClient } from "@opencode-ai/sdk/v2"
 import type { GlobalEvent } from "@opencode-ai/sdk/v2"
 import { Flag } from "@opencode-ai/core/flag/flag"
 import { createSimpleContext } from "./helper"
-import { batch, onCleanup, onMount } from "solid-js"
+import { batch, createSignal, onCleanup, onMount } from "solid-js"
 
 export type EventSource = {
   subscribe: (handler: (event: GlobalEvent) => void) => Promise<() => void>
 }
+
+// FORK-SEAM: fork-fleet-tui (set by /fleet; remounts everything below the route with a client for that directory)
+export const [directoryOverride, switchDirectory] = createSignal<string>()
 
 export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
   name: "SDK",

@@ -112,3 +112,17 @@ test("a snapshot older than six hours is not fresh", () => {
   expect(ForkQuota.fresh("anthropic", time + 1000)?.five_hour?.utilization).toBe(0.2)
   expect(ForkQuota.fresh("anthropic", time + ForkQuota.FRESH_MS + 1)).toBeUndefined()
 })
+
+test("active picks the most recently observed subscription", async () => {
+  const time = ForkQuota.latest("anthropic")?.time ?? 0
+  const codex = new Headers({
+    "x-codex-primary-window-minutes": "300",
+    "x-codex-primary-used-percent": "42",
+    "x-codex-primary-reset-at": "1791046800",
+  })
+  await Bun.sleep(5)
+  ForkQuota.observe(codex, undefined)
+  const snapshot = ForkQuota.active()
+  expect(snapshot?.provider).toBe("openai")
+  expect(ForkQuota.active(time + ForkQuota.FRESH_MS * 10)).toBeUndefined()
+})

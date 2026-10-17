@@ -5,6 +5,7 @@ import { SessionPermissionDock } from "@/pages/session/composer/session-permissi
 import { SessionQuestionDock } from "@/pages/session/composer/session-question-dock"
 import { SessionFollowupDock } from "@/pages/session/composer/session-followup-dock"
 import { SessionInterruptedNotice } from "@/pages/session/composer/session-interrupted-notice"
+import { SessionQuota } from "@/pages/session/composer/session-quota"
 import { SessionRevertDock } from "@/pages/session/composer/session-revert-dock"
 import { SessionTodoDock } from "@/pages/session/composer/session-todo-dock"
 import type { SessionComposerRegionController } from "./session-composer-region-controller"
@@ -109,7 +110,12 @@ export function SessionComposerRegion(props: {
             }
           >
             <Show when={controller.sessionID()}>
-              {(id) => <SessionInterruptedNotice sessionID={id()} />}
+              {(id) => (
+                <>
+                  <SessionInterruptedNotice sessionID={id()} />
+                  <SessionQuota sessionID={id()} />
+                </>
+              )}
             </Show>
             <Show when={rolled()} keyed>
               {(revert) => (

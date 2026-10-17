@@ -148,3 +148,14 @@
     transform: translateX(-50%);
   }
 }
+
+/* Phone tabs are 40px tall: stretch the close target to the full tab height. */
+@media (max-width: 767px) {
+  [data-titlebar-tab] [data-slot="tab-close"] {
+    top: 0;
+    bottom: 0;
+    height: auto;
+    width: 36px;
+    inset-inline-end: 0;
+  }
+}

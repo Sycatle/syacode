@@ -1472,7 +1472,8 @@ const layer = Layer.effect(
                 ...(isLastStep
                   ? [
                       {
-                        role: "assistant" as const,
+                        // A user message: a request ending on an assistant prefill is rejected by Anthropic when it carries thinking
+                        role: "user" as const,
                         content:
                           budget.state === "wrap-up"
                             ? ForkBudget.PROMPT

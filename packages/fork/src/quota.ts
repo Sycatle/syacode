@@ -101,6 +101,14 @@ export function fresh(provider = "anthropic", now = Date.now()) {
   return snapshot && now - snapshot.time < FRESH_MS ? snapshot : undefined
 }
 
+// The subscription in use right now, for a session that has no turn yet to tell its provider: the freshest snapshot.
+export function active(now = Date.now()) {
+  return ["anthropic", "openai"]
+    .flatMap((id) => fresh(id, now) ?? [])
+    .sort((a, b) => b.time - a.time)
+    .at(0)
+}
+
 export function latest(provider = "anthropic") {
   const row = table().query<{ data: string }, [string]>("SELECT data FROM fork_quota WHERE provider = ?").get(provider)
   return row ? (JSON.parse(row.data) as Snapshot) : undefined

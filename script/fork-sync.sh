@@ -4,6 +4,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# The fork is independent (docs/fork/independent.md): merging upstream is opt-in.
+if [[ "${1:-}" != "--no-merge" && "${FORK_ALLOW_UPSTREAM:-}" != "1" ]]; then
+  echo "fork-sync: upstream is no longer merged. Use --no-merge to only verify, or FORK_ALLOW_UPSTREAM=1 to merge." >&2
+  exit 1
+fi
+
 if [[ "${1:-}" != "--no-merge" ]]; then
   git fetch upstream dev
   git merge --no-edit upstream/dev

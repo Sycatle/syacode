@@ -179,3 +179,20 @@
 [data-component="icon-button"].titlebar-icon[data-variant="ghost"][aria-expanded="true"]:hover:not(:disabled) {
   background-color: var(--surface-raised-base-active);
 }
+
+/* Touch screens: extend the tap area to ~44px without changing the visual size. */
+@media (hover: none) and (pointer: coarse) {
+  [data-component="icon-button"]:not(.absolute, .fixed, .sticky) {
+    position: relative;
+  }
+
+  [data-component="icon-button"]::after {
+    content: "";
+    position: absolute;
+    inset: -8px;
+  }
+
+  [data-component="icon-button"][data-size="small"]::after {
+    inset: -12px;
+  }
+}

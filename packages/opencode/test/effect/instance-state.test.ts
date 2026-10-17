@@ -390,3 +390,27 @@ it.live("InstanceState survives deferred resume outside ALS when InstanceRef is 
     }).pipe(Effect.provide(Test.layer))
   }),
 )
+
+it.live("InstanceState recomputes after the first caller was interrupted mid-lookup", () =>
+  Effect.gen(function* () {
+    const dir = yield* tmpdirScoped()
+    const started = yield* Deferred.make<void>()
+    let n = 0
+    const state = yield* InstanceState.make(() =>
+      Effect.gen(function* () {
+        const attempt = ++n
+        if (attempt === 1) {
+          yield* Deferred.succeed(started, undefined)
+          return yield* Effect.never
+        }
+        return attempt
+      }),
+    )
+
+    const first = yield* Effect.forkChild(access(state, dir))
+    yield* Deferred.await(started)
+    yield* Fiber.interrupt(first)
+
+    expect(yield* access(state, dir)).toBe(2)
+  }),
+)
