@@ -50,6 +50,7 @@ import { DialogThemeList } from "./component/dialog-theme-list"
 import { DialogHelp } from "./ui/dialog-help"
 import { DialogAgent } from "./component/dialog-agent"
 import { DialogSessionList } from "./component/dialog-session-list"
+import { DialogFleet } from "./component/dialog-fleet"
 import { DialogWorkspaceList } from "./component/dialog-workspace-list"
 import { DialogConsoleOrg } from "./component/dialog-console-org"
 import { ThemeProvider, useTheme } from "./context/theme"
@@ -597,6 +598,17 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
         slashAliases: ["resume", "continue"],
         run: () => {
           dialog.replace(() => <DialogSessionList />)
+        },
+      },
+      {
+        // FORK-SEAM: fork-fleet-tui
+        name: "session.fleet",
+        title: "Sessions in all directories",
+        category: "Session",
+        slashName: "fleet",
+        slashAliases: ["running", "all"],
+        run: () => {
+          dialog.replace(() => <DialogFleet />)
         },
       },
       {
