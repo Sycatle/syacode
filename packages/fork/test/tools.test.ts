@@ -90,6 +90,7 @@ const withNative = (value: string | undefined, run: () => void) => {
 
 test("nativeDeferrable parses the env: default, disabled, CSV override", () => {
   withNative(undefined, () => expect(ForkTools.nativeDeferrable()).toContain("webfetch"))
+  withNative(undefined, () => expect(ForkTools.nativeDeferrable()).not.toContain("question"))
   withNative("0", () => expect(ForkTools.nativeDeferrable()).toEqual([]))
   withNative(" lsp, question ,,", () => expect(ForkTools.nativeDeferrable()).toEqual(["lsp", "question"]))
 })

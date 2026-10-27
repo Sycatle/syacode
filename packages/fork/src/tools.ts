@@ -18,7 +18,6 @@ const NATIVE_DEFERRABLE = [
   "webfetch",
   "websearch",
   "codesearch",
-  "question",
   "shell_output",
   "shell_kill",
   "monitor",

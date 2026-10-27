@@ -253,3 +253,27 @@ test("Bash dangerouslyDisableSandbox maps to sandbox: false", () => {
     dangerouslyDisableSandbox: true,
   })
 })
+
+test("AskUserQuestion accepts a list sent as a numeric-key object or a JSON string", () => {
+  const question = { question: "Which?", header: "Pick", multiSelect: true }
+  const expected = [{ question: "Which?", header: "Pick", multiple: true, options: [{ label: "A", description: "first" }] }]
+  const option = { label: "A", description: "first" }
+
+  expect(
+    ForkClaudeTools.fromModel("AskUserQuestion", { questions: { "0": { ...question, options: { "0": option } } } }).input,
+  ).toEqual({ questions: expected })
+  expect(
+    ForkClaudeTools.fromModel("AskUserQuestion", { questions: JSON.stringify([{ ...question, options: [option] }]) })
+      .input,
+  ).toEqual({ questions: expected })
+  expect(ForkClaudeTools.fromModel("AskUserQuestion", { questions: "not json" }).input).toEqual({
+    questions: "not json",
+  })
+})
+
+test("Bash passes workdir through", () => {
+  expect(ForkClaudeTools.fromModel("Bash", { command: "ls", workdir: "/tmp" }).input).toEqual({
+    command: "ls",
+    workdir: "/tmp",
+  })
+})
