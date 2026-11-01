@@ -234,6 +234,33 @@ it.instance(
 )
 
 it.instance(
+  "ask - interruption publishes question.rejected and clears the pending list",
+  () =>
+    Effect.gen(function* () {
+      const events = yield* EventV2Bridge.Service
+      const rejected = yield* Queue.unbounded<string>()
+      const off = yield* events.listen((event) => {
+        if (event.type === Question.Event.Rejected.type)
+          Queue.offerUnsafe(rejected, (event.data as typeof Question.Event.Rejected.data.Type).requestID)
+        return Effect.void
+      })
+      yield* Effect.addFinalizer(() => off)
+
+      const fiber = yield* askEffect({
+        sessionID: SessionID.make("ses_test"),
+        questions: [{ question: "Proceed?", header: "Go", options: [{ label: "Yes", description: "Do it" }] }],
+      }).pipe(Effect.forkScoped)
+
+      const pending = yield* waitForPending(1)
+      yield* Fiber.interrupt(fiber)
+
+      expect(yield* Queue.take(rejected).pipe(Effect.timeout("2 seconds"))).toBe(pending[0].id)
+      expect(yield* listEffect).toHaveLength(0)
+    }),
+  { git: true },
+)
+
+it.instance(
   "reject - removes from pending list",
   () =>
     Effect.gen(function* () {
