@@ -308,7 +308,7 @@ const SPECS: Spec[] = [
         prompt: str("Complete instructions for the agent."),
         subagent_type: str('Agent type to run. "fork" continues from a copy of the current conversation.'),
         run_in_background: bool("Run asynchronously; you are notified when the agent finishes."),
-        isolation: { type: "string", enum: ["worktree"], description: "Run the agent in an isolated git worktree." },
+        isolation: { type: "string", enum: ["worktree"], description: "Run the agent in an isolated git worktree (git repositories only)." },
         resume: str("Id of an earlier agent run to continue instead of starting a new one."),
       },
       ["description", "prompt"],
