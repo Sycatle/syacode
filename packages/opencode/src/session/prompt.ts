@@ -1458,6 +1458,16 @@ const layer = Layer.effect(
               ...(mcpInstructions ? [mcpInstructions] : []),
               ...(skills ? [skills] : []),
             ]
+            // A history ending on an assistant turn is a prefill, rejected with a 400 by current Anthropic models.
+            // It happens when another runner's reply to the same user message is still streaming.
+            if (!isLastStep && modelMsgs.at(-1)?.role === "assistant") {
+              yield* Effect.logWarning("history ends on an assistant message, not calling the model", {
+                "session.id": sessionID,
+                messageID: lastAssistant?.id,
+              })
+              yield* sessions.removeMessage({ sessionID, messageID: handle.message.id }).pipe(Effect.orDie)
+              return "break" as const
+            }
             const format = lastUser.format ?? { type: "text" as const }
             if (format.type === "json_schema") system.push(STRUCTURED_OUTPUT_SYSTEM_PROMPT)
             const result = yield* handle.process({
