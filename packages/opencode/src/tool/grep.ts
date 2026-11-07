@@ -67,6 +67,12 @@ export const GrepTool = Tool.define(
             bypass: false,
             kind: requestedInfo?.type === "Directory" ? "directory" : "file",
           })
+          // Without this, ripgrep is spawned in a missing directory and fails with a bare spawn ENOENT.
+          if (!requestedInfo) {
+            throw new Error(
+              `Search path does not exist: ${requested}. Pass one existing file or directory; run one search per path.`,
+            )
+          }
 
           const search = FSUtil.resolve(requested)
           const info = yield* fs.stat(search).pipe(Effect.catch(() => Effect.succeed(undefined)))
