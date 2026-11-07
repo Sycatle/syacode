@@ -20,7 +20,7 @@ export async function ForkGuardPlugin(): Promise<Hooks> {
           ? output.output
           : ""
       if (text.length < ForkGuard.MIN_CHARS) return
-      const response = await ForkJev.ask(ForkGuard.request(text))
+      const response = await ForkJev.ask({ ...ForkGuard.request(text), feature: "injection" })
       const injection = ForkGuard.probability(response.answers)
       const flagged = injection !== undefined && injection >= ForkGuard.AT
       ForkJev.journal({

@@ -35,7 +35,7 @@ export const make = (input: { sessions: Session.Interface; messages: SessionV1.W
     const names = ForkTools.preloadCandidates(pool, prompt, ForkTools.loadedTools(input.messages))
     if (!names.length) return
     const response = yield* Effect.promise((signal) =>
-      ForkJev.ask({ ...ForkTools.preloadRequest(pool, names, prompt), signal }),
+      ForkJev.ask({ ...ForkTools.preloadRequest(pool, names, prompt), signal, feature: "defer_tools" }),
     )
     const picked = response.answers ? ForkTools.preloadPicks(names, response.answers) : []
     ForkJev.journal({

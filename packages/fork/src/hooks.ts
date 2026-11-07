@@ -344,7 +344,7 @@ const CLASSIFY_STATE_CHARS = 3000
 async function runClassify(entry: ClassifyEntry, event: Payload, fetcher?: typeof fetch): Promise<Outcome> {
   if (!process.env.TYPESAFE_API_KEY) return { error: "classify hooks need TYPESAFE_API_KEY" }
   const response = await ForkJev.ask(
-    { state: payload(event).slice(0, CLASSIFY_STATE_CHARS), questions: { match: { type: "noul", instructions: entry.question } } },
+    { state: payload(event).slice(0, CLASSIFY_STATE_CHARS), questions: { match: { type: "noul", instructions: entry.question } }, feature: "hooks" },
     process.env,
     fetcher,
     entry.timeout,

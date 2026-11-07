@@ -35,9 +35,9 @@ test("endpoint, model and timeout come from OPENCODE_FORK_JEV_*", () => {
   expect(ForkJev.endpoint({})).toBe("https://api.typesafe.ai/v1/systemone")
   expect(ForkJev.endpoint({ OPENCODE_FORK_JEV_URL: "http://x/" })).toBe("http://x/v1/systemone")
   expect(ForkJev.model({})).toBe("jev-latest")
-  expect(ForkJev.timeout({})).toBe(1500)
+  expect(ForkJev.timeout({})).toBe(3000)
   expect(ForkJev.timeout({ OPENCODE_FORK_JEV_TIMEOUT_MS: "300" })).toBe(300)
-  expect(ForkJev.timeout({ OPENCODE_FORK_JEV_TIMEOUT_MS: "abc" })).toBe(1500)
+  expect(ForkJev.timeout({ OPENCODE_FORK_JEV_TIMEOUT_MS: "abc" })).toBe(3000)
 })
 
 test("answers keep the usable fields, level maps 0..3 to 0..1, confidence is the mean", () => {
@@ -94,4 +94,15 @@ test("three failures in a row pause Jev, a success in between resets the count",
   expect(paused.error).toStartWith("Jev paused")
   expect(paused.ms).toBe(0)
   expect(calls).toHaveLength(6)
+})
+
+test("a paused feature leaves the others running, and 529 never pauses", async () => {
+  let status = 500
+  const fetcher = (async () => new Response(JSON.stringify(body), { status })) as unknown as typeof fetch
+  for (const _ of [1, 2, 3]) await ForkJev.ask({ ...input, feature: "prompt_suggestion" }, env, fetcher)
+  expect((await ForkJev.ask({ ...input, feature: "prompt_suggestion" }, env, fetcher)).error).toStartWith("Jev paused")
+  status = 529
+  for (const _ of [1, 2, 3]) await ForkJev.ask({ ...input, feature: "route" }, env, fetcher)
+  status = 200
+  expect((await ForkJev.ask({ ...input, feature: "route" }, env, fetcher)).answers).toBeDefined()
 })
