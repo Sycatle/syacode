@@ -4,6 +4,7 @@ import { expect } from "bun:test"
 import { Server } from "@modelcontextprotocol/sdk/server/index.js"
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js"
 import {
+  CallToolRequestSchema,
   GetPromptRequestSchema,
   ListPromptsRequestSchema,
   ListResourcesRequestSchema,
@@ -17,6 +18,7 @@ import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import { Cause, Effect, Exit } from "effect"
 import type { MCP as MCPNS } from "../../src/mcp/index"
 import { MCP } from "../../src/mcp/index"
+import { McpCatalog } from "../../src/mcp/catalog"
 import { McpOAuthCallback } from "../../src/mcp/oauth-callback"
 import { TestInstance } from "../fixture/fixture"
 import { pollWithTimeout, testEffect } from "../lib/effect"
@@ -71,6 +73,9 @@ function lifecycleServer(input?: { capabilities?: ServerCapabilities; instructio
             const page = state.toolPages?.[request.params?.cursor ?? "initial"]
             return Promise.resolve({ tools: page?.items ?? state.tools, nextCursor: page?.nextCursor })
           })
+          protocol.setRequestHandler(CallToolRequestSchema, (request) =>
+            Promise.resolve({ content: [{ type: "text", text: `called ${request.params.name}` }] }),
+          )
         }
         if (capabilities.prompts) {
           protocol.setRequestHandler(ListPromptsRequestSchema, (request) => {
@@ -324,6 +329,27 @@ it.instance("disconnect removes protocol data and reconnect establishes a new se
     yield* mcp.connect("reconnect-server")
     expect((yield* mcp.status())["reconnect-server"]?.status).toBe("connected")
     expect(Object.keys(yield* mcp.tools())).toEqual(["reconnect-server_test_tool"])
+  }),
+)
+
+it.instance("a remote server that lost our session is reconnected and the call replayed", () =>
+  Effect.gen(function* () {
+    const server = yield* lifecycleServer()
+    server.state.prompts = [{ name: "greet" }]
+    const mcp = yield* MCP.Service
+    yield* mcp.add("expiring", remote(server.url))
+
+    // A new protocol on the same URL knows nothing of the session the client holds.
+    yield* Effect.promise(server.restart)
+    const prompt = yield* mcp.getPrompt("expiring", "greet")
+    expect(prompt?.messages[0]?.content).toEqual({ type: "text", text: "prompt result" })
+
+    yield* Effect.promise(server.restart)
+    const entry = (yield* mcp.tools())["expiring_test_tool"]
+    const execute = McpCatalog.convertTool(entry.def, entry.client, entry.timeout, entry.recover).execute
+    const result = yield* Effect.promise(() => execute!({}, { toolCallId: "call", messages: [] }))
+    expect(result).toMatchObject({ content: [{ type: "text", text: "called test_tool" }] })
+    expect((yield* mcp.status())["expiring"]?.status).toBe("connected")
   }),
 )
 

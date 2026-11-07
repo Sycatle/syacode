@@ -26,7 +26,7 @@ import { McpOAuthCallback } from "./oauth-callback"
 import { McpAuth } from "./auth"
 import { EventV2Bridge } from "@/event-v2-bridge"
 import { TuiEvent } from "@/server/tui-event"
-import { Cause, Effect, Exit, Layer, Context, Schema, Stream } from "effect"
+import { Cause, Deferred, Effect, Exit, Layer, Context, Schema, Stream } from "effect"
 import { EffectBridge } from "@/effect/bridge"
 import { InstanceState } from "@/effect/instance-state"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
@@ -146,6 +146,8 @@ interface State {
   clients: Record<string, MCPClient>
   defs: Record<string, MCPToolDef[]>
   instructions: Record<string, string>
+  // FORK-SEAM: mcp-expired-session (callers that lose the same session share one reconnect)
+  recovering: Record<string, Deferred.Deferred<void>>
 }
 
 export interface ServerInstructions {
@@ -160,6 +162,8 @@ export interface McpTool {
   readonly def: MCPToolDef
   readonly client: MCPClient
   readonly timeout?: number
+  /** Reconnects the server once its session is lost; the call is then replayed on the returned client. */
+  readonly recover?: McpCatalog.Recover
 }
 
 export interface Interface {
@@ -453,6 +457,25 @@ const layer = Layer.effect(
       }
     })
 
+    // FORK-SEAM: mcp-expired-session (the transport stays open when the server drops our session, so onclose never fires)
+    // Reconnects once unless another caller already did, or the server was disconnected on purpose.
+    const recover = Effect.fnUntraced(function* (s: State, name: string, lost: MCPClient) {
+      const running = s.recovering[name]
+      if (running) yield* Deferred.await(running)
+      const current = s.clients[name]
+      if (running || (current && current !== lost) || s.status[name]?.status === "disabled") return current
+      const done = yield* Deferred.make<void>()
+      s.recovering[name] = done
+      yield* Effect.logWarning("MCP session lost, reconnecting", { server: name })
+      yield* connect(name).pipe(
+        Effect.ignore,
+        Effect.ensuring(
+          Effect.sync(() => delete s.recovering[name]).pipe(Effect.andThen(Deferred.succeed(done, undefined))),
+        ),
+      )
+      return s.clients[name]
+    })
+
     function watch(s: State, name: string, client: MCPClient, bridge: EffectBridge.Shape, timeout?: number) {
       client.onclose = () => {
         if (s.clients[name] !== client) return
@@ -516,6 +539,7 @@ const layer = Layer.effect(
           clients: {},
           defs: {},
           instructions: {},
+          recovering: {},
         }
 
         yield* Effect.forEach(
@@ -686,6 +710,7 @@ const layer = Layer.effect(
       const cfg = yield* cfgSvc.get()
       const config = cfg.mcp ?? {}
       const defaultTimeout = cfg.experimental?.mcp_timeout
+      const bridge = yield* EffectBridge.make()
 
       // FORK-SEAM: mcp-tool-order (servers connect in whatever order they answer; a stable order keeps the prompt prefix cached)
       for (const [clientName, client] of Object.entries(s.clients).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
@@ -698,7 +723,12 @@ const layer = Layer.effect(
         }
         const timeout = requestTimeout(s, clientName, mcpConfig, defaultTimeout)
         for (const def of listed) {
-          result[McpCatalog.toolName(clientName, def.name)] = { def, client, timeout }
+          result[McpCatalog.toolName(clientName, def.name)] = {
+            def,
+            client,
+            timeout,
+            recover: () => bridge.promise(recover(s, clientName, client)),
+          }
         }
       }
       return result
@@ -713,6 +743,7 @@ const layer = Layer.effect(
     ) {
       return Effect.gen(function* () {
         const cfg = yield* cfgSvc.get()
+        const bridge = yield* EffectBridge.make()
         return yield* Effect.forEach(
           Object.entries(s.clients).filter(
             ([name]) => s.status[name]?.status === "connected" && (!targetClientName || name === targetClientName),
@@ -724,6 +755,7 @@ const layer = Layer.effect(
               (c) => listFn(c, requestTimeout(s, clientName, cfg.mcp?.[clientName], cfg.experimental?.mcp_timeout)),
               label,
               key,
+              () => bridge.promise(recover(s, clientName, client)),
             ).pipe(Effect.map((items) => Object.entries(items ?? {}))),
           { concurrency: "unbounded" },
         ).pipe(Effect.map((results) => Object.fromEntries<T & { client: string }>(results.flat())))
@@ -767,8 +799,17 @@ const layer = Layer.effect(
         return undefined
       }
       const cfg = yield* cfgSvc.get()
+      const bridge = yield* EffectBridge.make()
+      const timeout = requestTimeout(s, clientName, cfg.mcp?.[clientName], cfg.experimental?.mcp_timeout)
       return yield* Effect.tryPromise({
-        try: () => fn(client, requestTimeout(s, clientName, cfg.mcp?.[clientName], cfg.experimental?.mcp_timeout)),
+        // Prompts and resources are reads: they replay on a dropped connection too.
+        try: () =>
+          McpCatalog.callWithSession(
+            client,
+            () => bridge.promise(recover(s, clientName, client)),
+            (current) => fn(current, timeout),
+            McpCatalog.sessionLost,
+          ),
         catch: (error) => error,
       }).pipe(
         Effect.tapError((error) =>
@@ -777,12 +818,6 @@ const layer = Layer.effect(
             ...meta,
             error: error instanceof Error ? error.message : String(error),
           }),
-        ),
-        // FORK-SEAM: mcp-expired-session (a remote server that lost our session answers 422 "expect initialize request" until we reconnect)
-        Effect.tapError((error) =>
-          error instanceof Error && error.message.includes("expect initialize request")
-            ? connect(clientName).pipe(Effect.ignore)
-            : Effect.void,
         ),
         Effect.orElseSucceed(() => undefined),
       )
