@@ -7,7 +7,7 @@ import { Database } from "@opencode-ai/core/database/database"
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import { SessionProjector } from "@opencode-ai/core/session/projector"
 import { EventV2Bridge } from "@/event-v2-bridge"
-import { expect } from "bun:test"
+import { afterAll, beforeAll, expect } from "bun:test"
 import { Effect, Layer } from "effect"
 import path from "path"
 import { ForkCompactionLog } from "@opencode-fork/core/compaction-log"
@@ -49,6 +49,14 @@ import { TestInstance } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
 import { reply, TestLLMServer } from "../lib/llm-server"
 import { RuntimeFlags } from "@/effect/runtime-flags"
+
+// These cases exercise the model-limit threshold, not the fork's 200k ceiling.
+beforeAll(() => {
+  process.env.OPENCODE_FORK_COMPACT_AT = "0"
+})
+afterAll(() => {
+  delete process.env.OPENCODE_FORK_COMPACT_AT
+})
 
 const summary = Layer.succeed(
   SessionSummary.Service,

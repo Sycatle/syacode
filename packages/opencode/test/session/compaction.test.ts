@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, mock, test } from "bun:test"
+import { afterAll, afterEach, beforeAll, describe, expect, mock, test } from "bun:test"
 import { ConfigV1 } from "@opencode-ai/core/v1/config/config"
 import { SessionV1 } from "@opencode-ai/core/v1/session"
 import { Database } from "@opencode-ai/core/database/database"
@@ -33,6 +33,14 @@ import { ProviderV2 } from "@opencode-ai/core/provider"
 import { ModelV2 } from "@opencode-ai/core/model"
 import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
+
+// These cases exercise the model-limit threshold, not the fork's 200k ceiling.
+beforeAll(() => {
+  process.env.OPENCODE_FORK_COMPACT_AT = "0"
+})
+afterAll(() => {
+  delete process.env.OPENCODE_FORK_COMPACT_AT
+})
 
 const summary = Layer.succeed(
   SessionSummary.Service,

@@ -39,6 +39,18 @@ export function forget(sessionID: string) {
   last.delete(sessionID)
 }
 
+// Each call rereads the whole context from the cache, and Anthropic bills long context (>200k) at a premium: past
+// 200k a session costs more per step than a compaction (a third of the spend over 14 days). OPENCODE_FORK_COMPACT_AT
+// moves the ceiling; 0 restores compaction at the model limit.
+const DEFAULT_CEILING = 200_000
+
+export function ceiling(usable: number) {
+  const raw = process.env.OPENCODE_FORK_COMPACT_AT
+  const value = raw === undefined ? DEFAULT_CEILING : Number(raw)
+  if (!Number.isFinite(value) || value <= 0) return usable
+  return Math.min(usable, value)
+}
+
 export function enabled() {
   return ForkFlags.on("CACHED_COMPACTION")
 }
