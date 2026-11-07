@@ -174,6 +174,12 @@ test("dropDanglingToolReferences removes references to tools the request does no
   expect(fixed.messages[0].content[0].content.tool_references).toEqual([{ type: "tool_reference", tool_name: "mcp_Bash" }])
   expect(ForkTools.dropDanglingToolReferences(body("mcp_Bash", "mcp_Write"))).toBeUndefined()
   expect(ForkTools.dropDanglingToolReferences(JSON.stringify({ tools: [], messages: [] }))).toBeUndefined()
+
+  // tool_choice "none" sends no tools array: every reference is dropped.
+  const closing = JSON.parse(
+    ForkTools.dropDanglingToolReferences(JSON.stringify({ messages: [result("mcp_Bash")] })) ?? "{}",
+  )
+  expect(closing.messages[0].content[0].content.tool_references).toEqual([])
 })
 
 test("nativeSearchOutput reads back the stored references, an unreadable output is an empty result", () => {
