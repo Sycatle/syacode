@@ -46,15 +46,15 @@ export function presence(input: {
   const label = detailed && input.phase === "tool" && input.tool ? `Exécute ${input.tool}` : LABELS[input.phase]
   const assets = {
     large_image: "syacode",
-    large_text: "Syacode",
+    large_text: "SYA Code",
     small_image: input.phase,
     small_text: LABELS[input.phase],
   }
   const timestamps = { start: input.start }
-  if (input.privacy === "minimal") return { details: "Syacode", state: LABELS[input.phase], timestamps, assets }
+  if (input.privacy === "minimal") return { details: "SYA Code", state: LABELS[input.phase], timestamps, assets }
 
   return {
-    details: clamp([input.project ?? "Syacode", detailed ? input.title : undefined].filter(Boolean).join(" — ")),
+    details: clamp([input.project ?? "SYA Code", detailed ? input.title : undefined].filter(Boolean).join(" — ")),
     state: clamp(
       [
         label,

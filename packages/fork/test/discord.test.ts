@@ -10,7 +10,7 @@ describe("presence", () => {
 
   test("minimal hides project and model", () => {
     const activity = ForkDiscord.presence({ ...base, privacy: "minimal" })
-    expect(activity.details).toBe("Syacode")
+    expect(activity.details).toBe("SYA Code")
     expect(activity.state).toBe("Réfléchit")
   })
 
