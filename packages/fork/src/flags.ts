@@ -151,6 +151,14 @@ export const FLAGS = {
   PRUNE_JEV: { kind: "jev", default: "off", description: "Keep likely-needed tool outputs at prune" },
   DEFER_TOOLS_JEV: { kind: "jev", default: "off", description: "Preload the deferred tools a request needs" },
   AUTO_JEV: { kind: "jev", default: "on", description: "`opencode auto` judges completion without --until" },
+  // ---- integrations
+  DISCORD: { kind: "text", default: "off", description: "1 shows the active session as a Discord Rich Presence" },
+  DISCORD_PRIVACY: {
+    kind: "text",
+    default: "standard",
+    description: "Rich Presence detail: minimal (no project or model), standard, detailed (adds title, cost, tool)",
+  },
+  DISCORD_CLIENT_ID: { kind: "text", default: "Syacode app", description: "Discord application ID of the presence" },
   // ---- internal
   INTERACTIVE: { kind: "text", default: "set by the TUI", description: "Marks an interactive session" },
   REMOTE: { kind: "text", default: "set by attach", description: "The TUI is attached to a server on another machine" },
