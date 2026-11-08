@@ -71,6 +71,16 @@ export const FLAGS = {
     default: "on",
     description: "Tell sessions without the question tool (run, auto) not to wait for an approval",
   },
+  CADRAGE: {
+    kind: "switch",
+    default: "on",
+    description: "Ask framing questions (AskUserQuestion, batched) as soon as a product or design decision is open",
+  },
+  BACKLOG: {
+    kind: "switch",
+    default: "on",
+    description: "Continue from docs/backlog.md on go/reprends and close each batch with a three-line status",
+  },
   CC_TOOLS: { kind: "switch", default: "on", description: "Claude Code tool names and schemas for Anthropic models" },
   // ---- budget
   BUDGET_USD: { kind: "number", description: "Dollar budget per session tree: wrap-up at 100%, stop at 120%" },

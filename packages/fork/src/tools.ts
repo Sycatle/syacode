@@ -18,7 +18,6 @@ const NATIVE_DEFERRABLE = [
   "webfetch",
   "websearch",
   "codesearch",
-  "question",
   "shell_output",
   "shell_kill",
   "monitor",
@@ -139,8 +138,10 @@ export function dropDanglingToolReferences(body: string) {
   if (!body.includes('"tool_reference"')) return undefined
   try {
     const parsed: unknown = JSON.parse(body)
-    if (!isObject(parsed) || !Array.isArray(parsed.tools) || !Array.isArray(parsed.messages)) return undefined
-    const defined = new Set(parsed.tools.flatMap((item) => (isObject(item) && typeof item.name === "string" ? [item.name] : [])))
+    if (!isObject(parsed) || !Array.isArray(parsed.messages)) return undefined
+    // tool_choice "none" (the closing step) makes @ai-sdk/anthropic send no tools at all: every reference dangles.
+    const tools: unknown[] = Array.isArray(parsed.tools) ? parsed.tools : []
+    const defined = new Set(tools.flatMap((item) => (isObject(item) && typeof item.name === "string" ? [item.name] : [])))
     let changed = false
     const messages = parsed.messages.map((message: unknown) => {
       if (!isObject(message) || !Array.isArray(message.content)) return message

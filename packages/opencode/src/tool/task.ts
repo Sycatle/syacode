@@ -23,6 +23,7 @@ import { ProviderV2 } from "@opencode-ai/core/provider"
 import { Worktree } from "@/worktree"
 import { InstanceStore } from "@/project/instance-store"
 import { InstanceRef } from "@/effect/instance-ref"
+import { InstanceState } from "@/effect/instance-state"
 
 export interface TaskPromptOps {
   cancel(sessionID: SessionID): Effect.Effect<void>
@@ -68,7 +69,7 @@ const BaseParameterFields = {
   // FORK-SEAM: worktree-isolation (parameter)
   isolation: Schema.optional(Schema.Literal("worktree")).annotate({
     description:
-      'Set to "worktree" to run the subagent in an isolated git worktree created from the last commit (uncommitted changes are not included). Its changes come back as a branch to review and merge. Use it for subagents that edit files in parallel.',
+      'Git repositories only. Set to "worktree" to run the subagent in an isolated git worktree created from the last commit (uncommitted changes are not included). Its changes come back as a branch to review and merge. Use it for subagents that edit files in parallel.',
   }),
   // FORK-SEAM: subagent-inherit (parameter)
   ...(ForkAgents.inheritEnabled() ? InheritField : ({} as typeof InheritField)),
@@ -171,9 +172,13 @@ export const TaskTool = Tool.define(
         })
       }
 
-      const next = yield* agent.get(agentName)
+      // FORK-SEAM: agent-reload (an agent file added while the session runs is unknown to the cached registry)
+      const next = (yield* agent.get(agentName)) ?? (yield* agent.reload().pipe(Effect.andThen(agent.get(agentName))))
       if (!next) {
-        return yield* Effect.fail(new Error(`Unknown agent type: ${agentName} is not a valid agent type`))
+        const valid = (yield* agent.list()).filter((item) => item.mode !== "primary").map((item) => item.name)
+        return yield* Effect.fail(
+          new Error(`Unknown agent type: ${agentName} is not a valid agent type. Valid types: ${valid.join(", ")}`),
+        )
       }
 
       const session = params.task_id
@@ -187,15 +192,19 @@ export const TaskTool = Tool.define(
       const instances = yield* Effect.serviceOption(InstanceStore.Service)
       if (params.isolation === "worktree" && (Option.isNone(worktrees) || Option.isNone(instances)))
         return yield* Effect.fail(new Error("Worktree isolation is not available in this environment"))
+      // Outside git there is nothing to isolate from: run in place and say so instead of failing the call.
+      const gitless = params.isolation === "worktree" && (yield* InstanceState.context).project.vcs !== "git"
       const isolated =
-        params.isolation === "worktree" && !session && Option.isSome(worktrees) && Option.isSome(instances)
+        params.isolation === "worktree" && !gitless && !session && Option.isSome(worktrees) && Option.isSome(instances)
           ? yield* ForkWorktree.open({ worktree: worktrees.value, store: instances.value, name: params.description })
           : undefined
       const isolate = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
         isolated ? effect.pipe(Effect.provideService(InstanceRef, isolated.instance)) : effect
       const closeIsolation: Effect.Effect<string | undefined> = isolated && Option.isSome(instances)
         ? ForkWorktree.close({ isolated, store: instances.value, message: `subagent: ${params.description}` })
-        : Effect.succeed(undefined)
+        : Effect.succeed(
+            gitless ? "Isolation ignored: this project is not a git repository, the task ran in place." : undefined,
+          )
       const childPermission = deriveSubagentSessionPermission({
         parentSessionPermission: parent.permission ?? [],
         subagent: next,

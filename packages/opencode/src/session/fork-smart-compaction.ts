@@ -67,6 +67,7 @@ const confirmBoundary = Effect.fn("ForkSmartCompaction.boundary")(function* (
         todos: state.todos.filter((todo) => todo.status !== "completed").length,
       }),
       signal,
+      feature: "smart_compaction",
     }),
   )
   const boundary = response.answers?.boundary?.noul

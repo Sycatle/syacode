@@ -105,9 +105,13 @@ const layer = Layer.effect(
 
       return yield* Effect.ensuring(
         Deferred.await(deferred),
-        Effect.sync(() => {
+        // Still pending here means neither reply nor reject ran (interruption or instance disposal): tell clients
+        // to drop the prompt, otherwise it stays on screen and every submit fails with NotFoundError.
+        Effect.suspend(() =>
           pending.delete(id)
-        }),
+            ? events.publish(Event.Rejected, { sessionID: input.sessionID, requestID: id })
+            : Effect.void,
+        ),
       )
     })
 

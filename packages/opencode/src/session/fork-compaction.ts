@@ -149,7 +149,7 @@ const autoPin = Effect.fn("ForkCompaction.autoPin")(function* (sessionID: Sessio
     pinned,
   )
   if (!items.length) return
-  const response = yield* Effect.promise((signal) => ForkJev.ask({ ...ForkPins.jevRequest(items), signal }))
+  const response = yield* Effect.promise((signal) => ForkJev.ask({ ...ForkPins.jevRequest(items), signal, feature: "pins" }))
   const picks = response.answers ? ForkPins.picks(items, response.answers, pinned.filter((pin) => pin.auto).length) : []
   const added = picks.filter((pick) => ForkPins.add(sessionID, pick.message_id, pick.text))
   ForkJev.journal({

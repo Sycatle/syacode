@@ -18,3 +18,11 @@ test("the plan and worktree tools stay listed, other denied tools are still hidd
 test("a refused call names the tool and the agent", () => {
   expect(ForkStablePrefix.refusal("plan_exit", "build")).toContain("plan_exit is not available to the build agent")
 })
+
+test("freeze keeps the first system of a session until its history starts over", () => {
+  const key = { session: "ses_freeze", agent: "build", model: "claude-opus-5-5", first: { role: "user", content: "hi" } }
+  expect(ForkStablePrefix.freeze(key, ["monday"])).toEqual(["monday"])
+  expect(ForkStablePrefix.freeze(key, ["tuesday"])).toEqual(["monday"])
+  expect(ForkStablePrefix.freeze({ ...key, agent: "plan" }, ["tuesday"])).toEqual(["tuesday"])
+  expect(ForkStablePrefix.freeze({ ...key, first: { role: "user", content: "summary" } }, ["tuesday"])).toEqual(["tuesday"])
+})

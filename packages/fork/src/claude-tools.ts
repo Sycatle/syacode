@@ -55,6 +55,20 @@ function mapItems(value: unknown, fn: (item: Args) => Args) {
   return Array.isArray(value) ? value.map((item) => (isArgs(item) ? fn(item) : item)) : value
 }
 
+// Models sometimes send a list as an object keyed "0", "1"... or as a JSON string; both decode to the intended array.
+function asList(value: unknown): unknown {
+  if (typeof value === "string") {
+    try {
+      return asList(JSON.parse(value))
+    } catch {
+      return value
+    }
+  }
+  if (!isArgs(value)) return value
+  const keys = Object.keys(value)
+  return keys.length && keys.every((key, index) => key === String(index)) ? Object.values(value) : value
+}
+
 function without(args: Args, ...keys: string[]) {
   return Object.fromEntries(Object.entries(args).filter(([key]) => !keys.includes(key)))
 }
@@ -157,6 +171,7 @@ const SPECS: Spec[] = [
       {
         command: str("The command to run."),
         timeout: num("Timeout in milliseconds."),
+        workdir: str("Directory to run the command in, instead of starting the command with cd. Defaults to the project directory."),
         description: str("Short, plain-language summary of what the command does."),
         run_in_background: bool(
           "Run the command in the background; you are notified when it exits. Do not poll or sleep waiting for it.",
@@ -167,7 +182,7 @@ const SPECS: Spec[] = [
     ),
     description: [
       "Runs a shell command in the project directory and returns its output.",
-      "- Quote paths that contain spaces. Avoid cd; use absolute paths instead.",
+      "- Quote paths that contain spaces. Avoid cd: pass workdir, or use absolute paths.",
       "- Use Read, Edit, Write, Glob and Grep rather than cat, sed, echo > or find/grep when they can do the job.",
       "- Output is truncated when very long; the command is stopped when timeout (milliseconds) elapses.",
       "- Independent commands can go in separate parallel calls; chain dependent ones with && in a single call.",
@@ -293,7 +308,7 @@ const SPECS: Spec[] = [
         prompt: str("Complete instructions for the agent."),
         subagent_type: str('Agent type to run. "fork" continues from a copy of the current conversation.'),
         run_in_background: bool("Run asynchronously; you are notified when the agent finishes."),
-        isolation: { type: "string", enum: ["worktree"], description: "Run the agent in an isolated git worktree." },
+        isolation: { type: "string", enum: ["worktree"], description: "Run the agent in an isolated git worktree (git repositories only)." },
         resume: str("Id of an earlier agent run to continue instead of starting a new one."),
       },
       ["description", "prompt"],
@@ -369,7 +384,11 @@ const SPECS: Spec[] = [
     cc: "AskUserQuestion",
     toNative: (args) => ({
       ...args,
-      questions: mapItems(args.questions, (item) => rename(item, { multiSelect: "multiple" })),
+      questions: mapItems(asList(args.questions), (item) =>
+        rename(item.options === undefined ? item : { ...item, options: asList(item.options) }, {
+          multiSelect: "multiple",
+        }),
+      ),
     }),
     toCC: (args) => ({
       ...args,

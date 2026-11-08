@@ -80,6 +80,16 @@ export const prepare = Effect.fn("LLMRequestPrep.prepare")(function* (input: Pre
     system.length = 0
     system.push(header, rest.join("\n"))
   }
+  // FORK-SEAM: stable-prefix (system frozen per session)
+  if (!input.small && ForkStablePrefix.enabled(ProviderTransform.bindsThinking(input.model)))
+    system.splice(
+      0,
+      system.length,
+      ...ForkStablePrefix.freeze(
+        { session: input.sessionID, agent: input.agent.name, model: input.model.api.id, first: input.messages[0] },
+        system,
+      ),
+    )
 
   const variant =
     !input.small && input.model.variants && input.user.model.variant

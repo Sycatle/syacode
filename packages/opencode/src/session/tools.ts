@@ -433,7 +433,7 @@ export const resolve = Effect.fn("SessionTools.resolve")(function* (input: {
   if (flags.experimentalCodeMode) return claude ? ForkClaudeTools.wrap(tools) : tools
 
   for (const [key, entry] of Object.entries(yield* mcp.tools())) {
-    const item = McpCatalog.convertTool(entry.def, entry.client, entry.timeout)
+    const item = McpCatalog.convertTool(entry.def, entry.client, entry.timeout, entry.recover)
     const execute = item.execute
     if (!execute) continue
 

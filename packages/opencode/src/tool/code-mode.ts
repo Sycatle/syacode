@@ -147,16 +147,18 @@ const invokeChildTool = Effect.fn("CodeMode.invokeChildTool")(function* (input: 
     yield* input.ctx.ask({ permission: input.entry.key, metadata: {}, patterns: ["*"], always: ["*"] })
     // Deliberately mirrors McpCatalog.convertTool's transport call so the MCP service stays free of tool-loop concerns.
     return yield* Effect.promise(async () => {
-      const raw = await input.entry.tool.client.callTool(
-        { name: input.entry.tool.def.name, arguments: input.args },
-        CallToolResultSchema,
-        {
-          resetTimeoutOnProgress: true,
-          signal: input.ctx.abort,
-          timeout: input.entry.tool.timeout,
-          // The MCP SDK only sends a progress token when this hook is present, enabling timeout resets.
-          onprogress: () => {},
-        },
+      const raw = await McpCatalog.callWithSession(input.entry.tool.client, input.entry.tool.recover, (client) =>
+        client.callTool(
+          { name: input.entry.tool.def.name, arguments: input.args },
+          CallToolResultSchema,
+          {
+            resetTimeoutOnProgress: true,
+            signal: input.ctx.abort,
+            timeout: input.entry.tool.timeout,
+            // The MCP SDK only sends a progress token when this hook is present, enabling timeout resets.
+            onprogress: () => {},
+          },
+        ),
       )
       if (raw.isError)
         throw new Error(

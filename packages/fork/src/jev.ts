@@ -8,7 +8,8 @@ import { ForkTelemetry } from "./telemetry"
 
 const DEFAULT_URL = "https://api.typesafe.ai"
 const DEFAULT_MODEL = "jev-latest"
-const DEFAULT_TIMEOUT_MS = 1500
+// Jev's p99 is about 1.3 s once queued: 1.5 s turned ordinary slow calls into failures.
+const DEFAULT_TIMEOUT_MS = 3000
 
 type Env = Record<string, string | undefined>
 
@@ -21,7 +22,7 @@ export type Answer = { choice?: string; score?: number; noul?: number; confidenc
 
 export type Result =
   | { answers: Record<string, Answer>; ms: number; error?: undefined }
-  | { error: string; ms: number; answers?: undefined }
+  | { error: string; ms: number; answers?: undefined; status?: number }
 
 // "off" without a key or with OPENCODE_FORK_<FEATURE>_JEV=0. "shadow" runs Jev next to the old path and
 // only journals the comparison; "on" lets Jev decide. Anything else is the feature's default.
@@ -95,11 +96,12 @@ export function confidence(all: Record<string, Answer>) {
   return values.length ? clamp(values.reduce((sum, value) => sum + value, 0) / values.length) : undefined
 }
 
-// After BREAKER_FAILURES failures in a row Jev is skipped for BREAKER_MS: every feature then takes its fallback
-// at once instead of waiting for a timeout on each call. One breaker per transport (the global fetch in use).
+// After BREAKER_FAILURES failures in a row Jev is skipped for BREAKER_MS: the feature then takes its fallback
+// at once instead of waiting for a timeout on each call. One breaker per transport and feature, so a feature
+// with a tight deadline (prompt suggestions) cannot pause the others (routing).
 const BREAKER_FAILURES = 3
 const BREAKER_MS = 5 * 60_000
-const breakers = new WeakMap<typeof fetch, { failures: number; until: number }>()
+const breakers = new WeakMap<typeof fetch, Map<string, { failures: number; until: number }>>()
 const BREAKER = "breaker"
 
 // When the breaker of a process opened less than BREAKER_MS ago and no call succeeded since: the end of the pause.
@@ -115,23 +117,25 @@ export function pausedUntil(now = Date.now()) {
 // POST to Jev with a bearer token. The error text says why the caller must keep its old path. `signal`
 // cancels the request when the caller is interrupted (the turn is aborted).
 export async function ask(
-  input: { state: string; questions: Record<string, Question>; signal?: AbortSignal },
+  input: { state: string; questions: Record<string, Question>; signal?: AbortSignal; feature?: string },
   env: Env = process.env,
   fetcher: typeof fetch = fetch,
   timeoutMs = timeout(env),
 ): Promise<Result> {
-  const breaker = breakers.get(fetcher) ?? { failures: 0, until: 0 }
-  breakers.set(fetcher, breaker)
+  const features = breakers.get(fetcher) ?? new Map()
+  breakers.set(fetcher, features)
+  const breaker = features.get(input.feature ?? "") ?? { failures: 0, until: 0 }
+  features.set(input.feature ?? "", breaker)
   if (breaker.until > Date.now())
     return { error: `Jev paused after ${BREAKER_FAILURES} failures in a row`, ms: 0 }
   const result = await post(input, env, fetcher, timeoutMs)
-  // A call the caller cancelled says nothing about Jev's health.
-  if (result.error !== undefined && !input.signal?.aborted) {
+  // A call the caller cancelled says nothing about Jev's health, and 529 is a transient overload.
+  if (result.error !== undefined && !input.signal?.aborted && result.status !== 529) {
     breaker.failures++
     if (breaker.failures >= BREAKER_FAILURES) {
       breaker.until = Date.now() + BREAKER_MS
-      // Journaled for the real transport only, so the TUI can say that every Jev feature is on its fallback.
-      if (fetcher === fetch) journal({ feature: BREAKER, ms: 0, ok: false, error: result.error })
+      // Journaled for the real transport only, so the TUI can say that a Jev feature is on its fallback.
+      if (fetcher === fetch) journal({ feature: BREAKER, ms: 0, ok: false, error: result.error, decision: input.feature })
     }
   }
   if (result.error === undefined) breaker.failures = 0
@@ -155,7 +159,7 @@ async function post(
   }).catch((error: unknown) => (error instanceof Error ? error : new Error(String(error))))
   const ms = () => Date.now() - started
   if (response instanceof Error) return { error: `Jev request failed: ${response.message}`, ms: ms() }
-  if (!response.ok) return { error: `Jev returned HTTP ${response.status}`, ms: ms() }
+  if (!response.ok) return { error: `Jev returned HTTP ${response.status}`, ms: ms(), status: response.status }
   const parsed = answers(await response.json().catch(() => undefined))
   return parsed ? { answers: parsed, ms: ms() } : { error: "Jev response unusable", ms: ms() }
 }

@@ -1,7 +1,10 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
+import { StreamableHTTPError } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
 import {
   CallToolResultSchema,
+  ErrorCode,
   ListToolsResultSchema,
+  McpError,
   ToolSchema,
   type Tool as MCPToolDef,
 } from "@modelcontextprotocol/sdk/types.js"
@@ -39,7 +42,41 @@ export function defs(client: Client, timeout?: number) {
   return listTools(client, timeout ?? DEFAULT_TIMEOUT).pipe(Effect.catch(() => Effect.void))
 }
 
-export function convertTool(mcpTool: MCPToolDef, client: Client, timeout?: number): Tool {
+// FORK-SEAM: mcp-expired-session (a remote server that lost our session refuses every request until we initialize again)
+// Refused at the session layer, the request never ran: replaying it is safe, even for a tool call.
+export function sessionRejected(error: unknown) {
+  return (
+    error instanceof StreamableHTTPError &&
+    (error.code === 404 ||
+      error.message.includes("expect initialize request") ||
+      error.message.includes("Server not initialized"))
+  )
+}
+
+// A dropped connection too: the request may have run, so only reads replay on it.
+export function sessionLost(error: unknown) {
+  return sessionRejected(error) || (error instanceof McpError && error.code === ErrorCode.ConnectionClosed)
+}
+
+/** Reconnects a server whose session was lost and returns its new client. */
+export type Recover = () => Promise<Client | undefined>
+
+// Replays a call once on a fresh client when the session is gone. Tool calls only replay a refused request.
+export function callWithSession<A>(
+  client: Client,
+  recover: Recover | undefined,
+  call: (client: Client) => Promise<A>,
+  replayable: (error: unknown) => boolean = sessionRejected,
+) {
+  return call(client).catch(async (error: unknown) => {
+    if (!recover || !replayable(error)) throw error
+    const fresh = await recover()
+    if (!fresh) throw error
+    return call(fresh)
+  })
+}
+
+export function convertTool(mcpTool: MCPToolDef, client: Client, timeout?: number, recover?: Recover): Tool {
   const inputSchema: JSONSchema7 = {
     ...(mcpTool.inputSchema as JSONSchema7),
     type: "object",
@@ -51,19 +88,21 @@ export function convertTool(mcpTool: MCPToolDef, client: Client, timeout?: numbe
     description: mcpTool.description ?? "",
     inputSchema: jsonSchema(inputSchema),
     execute: async (args: unknown, options) => {
-      const result = await client.callTool(
-        {
-          name: mcpTool.name,
-          arguments: (args || {}) as Record<string, unknown>,
-        },
-        CallToolResultSchema,
-        {
-          resetTimeoutOnProgress: true,
-          signal: options.abortSignal,
-          timeout,
-          // The MCP SDK only sends a progress token when this hook is present, enabling timeout resets.
-          onprogress: () => {},
-        },
+      const result = await callWithSession(client, recover, (current) =>
+        current.callTool(
+          {
+            name: mcpTool.name,
+            arguments: (args || {}) as Record<string, unknown>,
+          },
+          CallToolResultSchema,
+          {
+            resetTimeoutOnProgress: true,
+            signal: options.abortSignal,
+            timeout,
+            // The MCP SDK only sends a progress token when this hook is present, enabling timeout resets.
+            onprogress: () => {},
+          },
+        ),
       )
       if (result.isError)
         throw new Error(
@@ -88,9 +127,10 @@ export function fetch<T extends { name: string }>(
   list: (client: Client) => Promise<T[]>,
   label: string,
   key?: (item: T) => string,
+  recover?: Recover,
 ) {
   return Effect.tryPromise({
-    try: () => list(client),
+    try: () => callWithSession(client, recover, list, sessionLost),
     catch: (error) => error,
   }).pipe(
     Effect.tapError((error) =>

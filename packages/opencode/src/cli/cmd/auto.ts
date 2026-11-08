@@ -118,7 +118,7 @@ export const AutoCommand = cmd({
 
 // Jev's verdict on the agent's last message; "unavailable" on any failure so the loop stops instead of guessing.
 async function judge(task: string, reply: string, sessionID: string | undefined) {
-  const response = await ForkJev.ask(ForkAutonomy.judgeRequest({ task, reply }))
+  const response = await ForkJev.ask({ ...ForkAutonomy.judgeRequest({ task, reply }), feature: "auto" })
   const judgement = ForkAutonomy.judgement(response.answers)
   ForkJev.journal({
     feature: "auto",

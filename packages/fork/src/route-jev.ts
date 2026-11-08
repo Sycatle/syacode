@@ -120,7 +120,7 @@ export async function call(
   env: Env = process.env,
   fetcher: typeof fetch = fetch,
 ): Promise<Result> {
-  const response = await ForkJev.ask({ ...request(input), signal: input.signal }, env, fetcher)
+  const response = await ForkJev.ask({ ...request(input), signal: input.signal, feature: "route" }, env, fetcher)
   if (response.error !== undefined) return { error: response.error, ms: response.ms }
   const parsed = signals(response.answers, input.size)
   return parsed ? { signals: parsed, ms: response.ms } : { error: "Jev response unusable", ms: response.ms }

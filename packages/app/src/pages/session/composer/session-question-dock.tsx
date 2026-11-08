@@ -9,6 +9,7 @@ import { showToast } from "@/utils/toast"
 import type { QuestionAnswer, QuestionRequest } from "@opencode-ai/sdk/v2"
 import { useLanguage } from "@/context/language"
 import { useSDK } from "@/context/sdk"
+import { useSync } from "@/context/sync"
 import { makeEventListener } from "@solid-primitives/event-listener"
 import { createResizeObserver } from "@solid-primitives/resize-observer"
 import { useServerSDK } from "@/context/server-sdk"
@@ -63,6 +64,7 @@ function Option(props: {
 
 export const SessionQuestionDock: Component<{ request: QuestionRequest; onSubmit: () => void }> = (props) => {
   const sdk = useSDK()
+  const sync = useSync()
   const serverSDK = useServerSDK()
   const language = useLanguage()
   const cacheKey = ScopedKey.from(serverSDK().scope, props.request.id)
@@ -222,16 +224,21 @@ export const SessionQuestionDock: Component<{ request: QuestionRequest; onSubmit
     showToast({ title: language.t("common.requestFailed"), description: message })
   }
 
+  // Do not wait for the question.replied/rejected event: when it is late or lost the answered card stays on screen
+  // and every further click fails with "reply for unknown request".
+  const settle = () => {
+    replied = true
+    cache.delete(cacheKey)
+    sync().set("question", props.request.sessionID, (list = []) => list.filter((item) => item.id !== props.request.id))
+  }
+
   const replyMutation = useMutation(() => ({
     mutationFn: (answers: QuestionAnswer[]) =>
       sdk().api.question.reply({ sessionID: props.request.sessionID, requestID: props.request.id, answers }),
     onMutate: () => {
       props.onSubmit()
     },
-    onSuccess: () => {
-      replied = true
-      cache.delete(cacheKey)
-    },
+    onSuccess: settle,
     onError: fail,
   }))
 
@@ -240,10 +247,7 @@ export const SessionQuestionDock: Component<{ request: QuestionRequest; onSubmit
     onMutate: () => {
       props.onSubmit()
     },
-    onSuccess: () => {
-      replied = true
-      cache.delete(cacheKey)
-    },
+    onSuccess: settle,
     onError: fail,
   }))
 
