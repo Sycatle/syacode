@@ -98,3 +98,14 @@ test("preview reports both costs and the path the arbitration would take", () =>
   })
   expect(ForkCompaction.preview({ context: 17_000, delta: 3_000, legacy: 2_700, cacheRatio: 0.1 }).path).toBe("legacy")
 })
+
+test("auto-compaction stops at 200k unless the ceiling is moved or switched off", () => {
+  delete process.env.OPENCODE_FORK_COMPACT_AT
+  expect(ForkCompaction.ceiling(980_000)).toBe(200_000)
+  expect(ForkCompaction.ceiling(180_000)).toBe(180_000)
+  process.env.OPENCODE_FORK_COMPACT_AT = "300000"
+  expect(ForkCompaction.ceiling(980_000)).toBe(300_000)
+  process.env.OPENCODE_FORK_COMPACT_AT = "0"
+  expect(ForkCompaction.ceiling(980_000)).toBe(980_000)
+  delete process.env.OPENCODE_FORK_COMPACT_AT
+})

@@ -1,4 +1,5 @@
 import type { Config } from "@/config/config"
+import { ForkCompaction } from "@opencode-fork/core/compaction"
 import { ConfigV1 } from "@opencode-ai/core/v1/config/config"
 import { SessionV1 } from "@opencode-ai/core/v1/session"
 import type { Provider } from "@/provider/provider"
@@ -30,5 +31,6 @@ export function isOverflow(input: {
 
   const count =
     input.tokens.total || input.tokens.input + input.tokens.output + input.tokens.cache.read + input.tokens.cache.write
-  return count >= usable(input)
+  // FORK-SEAM: compaction-ceiling
+  return count >= ForkCompaction.ceiling(usable(input))
 }
