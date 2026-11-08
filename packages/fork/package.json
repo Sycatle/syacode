@@ -55,6 +55,7 @@
     "./compaction-log": "./src/compaction-log.ts",
     "./session-worktree": "./src/session-worktree.ts",
     "./prompt-suggestion": "./src/prompt-suggestion.ts",
+    "./discord": "./src/discord.ts",
     "./flags": "./src/flags.ts"
   },
   "dependencies": {
