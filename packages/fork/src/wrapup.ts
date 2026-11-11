@@ -29,9 +29,14 @@ type Hit = { reset: number; used: number; window: "five_hour" | "seven_day" }
 export type State = { state: "ok" } | ({ state: "wind-down" } & Hit) | ({ state: "wrap-up" } & Hit)
 
 // The provider's windows as the last response reported them. The window that reopens last decides when work resumes.
-export function quota(snapshot: ForkQuota.Snapshot | undefined, now: number, threshold = quotaThreshold()): State {
+export function quota(
+  snapshot: ForkQuota.Snapshot | undefined,
+  now: number,
+  threshold = quotaThreshold(),
+  windows: readonly Hit["window"][] = ["five_hour", "seven_day"],
+): State {
   if (!enabled() || !snapshot) return { state: "ok" }
-  const open = (["five_hour", "seven_day"] as const).flatMap((id) => {
+  const open = windows.flatMap((id) => {
     const window = snapshot[id]
     return window && window.reset > now ? [{ window: id, reset: window.reset, used: window.utilization, rejected: window.status === "rejected" }] : []
   })
@@ -49,6 +54,9 @@ export function dueAt(reset: number) {
 // Tools that start work nobody will be there to finish: refused while a window winds down (they stay listed, so the
 // prefix and the signed thinking blocks keep their validity).
 export const NEW_WORK_TOOLS = ["task", "workflow"] as const
+// Only the 5-hour window refuses new work: the weekly one stays high for days, and refusing agents that long stalls
+// every session instead of easing one close.
+export const NEW_WORK_WINDOWS = ["five_hour"] as const
 
 export function refusal(tool: string, state: Extract<State, { state: "wind-down" }>) {
   return `${tool} is not available now: the ${state.window === "five_hour" ? "5-hour" : "weekly"} usage window is at ${Math.round(state.used * 100)}%. Finish the work in progress without starting subagents, workflows or background jobs.`

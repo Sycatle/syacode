@@ -132,7 +132,12 @@ export const resolve = Effect.fn("SessionTools.resolve")(function* (input: {
                 Permission.merge(input.agent.permission, input.session.permission ?? []),
               ).has(item.id)
             // FORK-SEAM: wrap-up (a window winding down: no new subagents, workflows or background jobs; they stay listed)
-            const winding = ForkWrapup.quota(ForkQuota.fresh(input.model.providerID), Date.now())
+            const winding = ForkWrapup.quota(
+              ForkQuota.fresh(input.model.providerID),
+              Date.now(),
+              undefined,
+              ForkWrapup.NEW_WORK_WINDOWS,
+            )
             const newWork =
               winding.state === "wind-down" &&
               (ForkWrapup.NEW_WORK_TOOLS.some((tool) => tool === item.id) ||
